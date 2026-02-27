@@ -73,14 +73,19 @@ export default function AdminVendedores() {
     });
 
     if (response.error || response.data?.error) {
-      toast.error(response.data?.error ?? response.error?.message ?? "Erro ao criar vendedor");
+      const msg = response.data?.error ?? response.error?.message ?? "Erro ao criar vendedor";
+      const friendly = msg.toLowerCase().includes("already") || msg.toLowerCase().includes("duplicate") || msg.toLowerCase().includes("exists")
+        ? "Este email já está cadastrado"
+        : msg;
+      toast.error(friendly);
       return;
     }
 
     setCreatedPassword(password);
     setCreatedLink(`${window.location.origin}/r/${codigoRef}`);
     toast.success("Vendedor criado com sucesso!");
-    fetchVendedores();
+    // Small delay to allow the trigger to create the profile
+    setTimeout(() => fetchVendedores(), 1500);
   };
 
   const handleEdit = async () => {
