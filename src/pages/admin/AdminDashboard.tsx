@@ -16,6 +16,7 @@ export default function AdminDashboard() {
   const [filtroStatus, setFiltroStatus] = useState("all");
   const [dataInicio, setDataInicio] = useState("");
   const [dataFim, setDataFim] = useState("");
+  const [showResults, setShowResults] = useState(false);
 
   const fetchData = async () => {
     const [mRes, vRes, cRes] = await Promise.all([
@@ -137,10 +138,13 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      <div className="flex justify-end">
-        <Button variant="outline" onClick={exportCSV}>Exportar CSV</Button>
+      <div className="flex justify-end gap-3">
+        <Button onClick={() => setShowResults(true)}>Filtrar</Button>
+        <Button variant="outline" onClick={exportCSV} disabled={!showResults}>Exportar CSV</Button>
       </div>
 
+      {showResults && (
+      <>
       {/* Matriculas Table */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
@@ -217,6 +221,8 @@ export default function AdminDashboard() {
             </tbody>
           </table>
         </div>
+      )}
+      </>
       )}
     </div>
   );

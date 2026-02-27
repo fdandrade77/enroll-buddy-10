@@ -168,7 +168,16 @@ export default function AdminVendedores() {
               <div className="space-y-4">
                 <div className="bg-success/10 border border-success/30 rounded-lg p-4">
                   <p className="text-sm font-medium text-success mb-2">Vendedor criado com sucesso!</p>
-                  <div className="space-y-2">
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-xs text-muted-foreground">E-mail:</p>
+                      <div className="flex items-center gap-2">
+                        <code className="text-sm bg-muted px-2 py-1 rounded">{form.email}</code>
+                        <Button size="sm" variant="ghost" onClick={() => copyToClipboard(form.email)}>
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Senha gerada:</p>
                       <div className="flex items-center gap-2">
@@ -179,10 +188,10 @@ export default function AdminVendedores() {
                       </div>
                     </div>
                     <div>
-                      <p className="text-xs text-muted-foreground">Link de matrícula:</p>
+                      <p className="text-xs text-muted-foreground">Link de acesso à plataforma:</p>
                       <div className="flex items-center gap-2">
-                        <code className="text-xs bg-muted px-2 py-1 rounded break-all">{createdLink}</code>
-                        <Button size="sm" variant="ghost" onClick={() => copyToClipboard(createdLink!)}>
+                        <code className="text-xs bg-muted px-2 py-1 rounded break-all">{`${window.location.origin}/login`}</code>
+                        <Button size="sm" variant="ghost" onClick={() => copyToClipboard(`${window.location.origin}/login`)}>
                           <Copy className="h-3 w-3" />
                         </Button>
                       </div>

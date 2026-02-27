@@ -18,6 +18,7 @@ export default function VendedorDashboard() {
   const [dataInicio, setDataInicio] = useState("");
   const [dataFim, setDataFim] = useState("");
   const [linkCurso, setLinkCurso] = useState("all");
+  const [showResults, setShowResults] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -162,10 +163,13 @@ export default function VendedorDashboard() {
         </div>
       </div>
 
-      <div className="flex justify-end">
-        <Button variant="outline" onClick={exportCSV}>Exportar CSV</Button>
+      <div className="flex justify-end gap-3">
+        <Button onClick={() => setShowResults(true)}>Filtrar</Button>
+        <Button variant="outline" onClick={exportCSV} disabled={!showResults}>Exportar CSV</Button>
       </div>
 
+      {showResults && (
+      <>
       {/* Matriculas Table */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
@@ -208,6 +212,8 @@ export default function VendedorDashboard() {
           </table>
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 }
