@@ -11,6 +11,7 @@ import Login from "./pages/Login";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminVendedores from "./pages/admin/AdminVendedores";
 import AdminCursos from "./pages/admin/AdminCursos";
+import AdminAlunos from "./pages/admin/AdminAlunos";
 import VendedorDashboard from "./pages/vendedor/VendedorDashboard";
 import PublicMatricula from "./pages/PublicMatricula";
 import NotFound from "./pages/NotFound";
@@ -33,6 +34,7 @@ const App = () => (
               <Route path="dashboard" element={<AdminDashboard />} />
               <Route path="vendedores" element={<AdminVendedores />} />
               <Route path="cursos" element={<AdminCursos />} />
+              <Route path="alunos" element={<AdminAlunos />} />
             </Route>
 
             <Route path="/vendedor" element={<ProtectedRoute requiredRole="vendedor"><VendedorLayout /></ProtectedRoute>}>
