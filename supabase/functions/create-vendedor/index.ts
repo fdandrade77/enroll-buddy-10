@@ -1,0 +1,83 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
+  try {
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+    // Verify caller is admin
+    const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: { user } } = await userClient.auth.getUser();
+    if (!user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    const adminClient = createClient(supabaseUrl, serviceKey);
+    const { data: roleData } = await adminClient.from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin").single();
+    if (!roleData) {
+      return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    const body = await req.json();
+    const { nome, email, password, whatsapp, cpf, chave_pix, cnpj, codigo_ref } = body;
+
+    if (!nome || !email || !password || !whatsapp || !cpf || !chave_pix || !codigo_ref) {
+      return new Response(JSON.stringify({ error: "Missing fields" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // Create user with service role (doesn't affect admin session)
+    const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: { nome },
+    });
+
+    if (authError) {
+      return new Response(JSON.stringify({ error: authError.message }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    const userId = authData.user.id;
+
+    // Assign role
+    await adminClient.from("user_roles").insert({ user_id: userId, role: "vendedor" });
+
+    // Create vendedor
+    const { error: vendError } = await adminClient.from("vendedores").insert({
+      user_id: userId,
+      codigo_ref,
+      whatsapp,
+      cpf,
+      chave_pix,
+      cnpj: cnpj || null,
+    });
+
+    if (vendError) {
+      return new Response(JSON.stringify({ error: vendError.message }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    return new Response(JSON.stringify({ success: true, user_id: userId }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  } catch (err) {
+    return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+});
