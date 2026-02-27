@@ -1,33 +1,81 @@
 
 
-## Correção: Vendedor não aparece na lista após cadastro
+## Melhorias no Sistema: Credenciais, Alunos, Dashboard e Painel do Vendedor
 
-### Problema
+### Resumo das mudancas
 
-Ao criar um vendedor, a lista não atualiza porque a query `select("*, profiles:user_id(nome, email, ativo)")` faz um join entre `vendedores` e `profiles` via `user_id`, mas **faltam duas coisas no banco**:
+Voce pediu 4 coisas principais. Aqui esta o plano para cada uma:
 
-1. **Foreign keys ausentes** -- As tabelas `vendedores` e `profiles` não possuem FK para `auth.users`, e o PostgREST precisa dessas FKs para resolver os joins. Sem elas, a query falha silenciosamente e retorna vazio.
+---
 
-2. **Trigger `handle_new_user` não vinculado** -- A função existe no banco, mas nenhum trigger a executa. Quando a Edge Function cria o usuário, o `profiles` nunca é populado automaticamente, então o join retorna `null`.
+### 1. Ao criar vendedor, mostrar credenciais de acesso (nao link de matricula)
 
-### Solução
+Atualmente, ao criar um vendedor, a tela mostra a senha gerada e o link de matricula. O correto e mostrar:
+- Email e senha do vendedor
+- Link de acesso a plataforma (ex: `https://seusite.com/login`)
+- O link de matricula fica disponivel **dentro do painel do vendedor**, nao na tela de criacao do admin.
 
-**Passo 1 -- Migration SQL** para corrigir o banco:
+**Arquivo:** `src/pages/admin/AdminVendedores.tsx`
+- Trocar o "Link de matricula" pelo "Link de acesso" apontando para `/login`
+- Manter email + senha visivel para o admin copiar e enviar ao vendedor
 
-- Adicionar FK de `profiles.user_id` para `auth.users(id)`
-- Adicionar FK de `vendedores.user_id` para `auth.users(id)`
-- Criar o trigger `on_auth_user_created` na tabela `auth.users` que executa `handle_new_user()`
-- Criar perfis retroativos para usuários que já existem mas não têm perfil
+---
 
-**Passo 2 -- Ajustar o frontend** (`AdminVendedores.tsx`):
+### 2. Dashboard Admin: Botao "Filtrar" e lista visivel antes de exportar
 
-- Adicionar um pequeno delay (1 segundo) antes do `fetchVendedores()` após criação, para garantir que o trigger tenha tempo de criar o perfil
-- Melhorar tratamento de erro para emails duplicados ("Este email já está cadastrado")
+Atualmente os filtros aplicam automaticamente. O usuario quer:
+- Um botao "Filtrar" explicito
+- A tabela so aparece apos clicar em Filtrar
+- Exportar CSV continua funcionando sobre os dados filtrados
+
+**Arquivo:** `src/pages/admin/AdminDashboard.tsx`
+- Adicionar estado `showResults` (inicia `false`)
+- Adicionar botao "Filtrar" ao lado dos filtros
+- Tabela so renderiza quando `showResults === true`
+- Ao clicar Filtrar, seta `showResults = true`
+
+---
+
+### 3. Nova aba "Alunos" no painel Admin
+
+Uma pagina dedicada para ver todas as matriculas com dados completos dos alunos (nome, CPF, email, WhatsApp, curso, vendedor, status). Isso permite ao admin consultar os dados para efetuar matricula na plataforma do polo.
+
+**Novos arquivos:**
+- `src/pages/admin/AdminAlunos.tsx` -- Pagina com tabela completa de matriculas/alunos, com filtros e busca por nome/CPF
+
+**Arquivos editados:**
+- `src/components/AdminLayout.tsx` -- Adicionar link "Alunos" no menu lateral (icone GraduationCap)
+- `src/App.tsx` -- Adicionar rota `/admin/alunos`
+
+A pagina mostrara: Nome Completo, CPF, Email, WhatsApp, Curso, Vendedor, Tipo Pagamento, Parcelas, Vencimento, Valor, Status, Data -- todos os dados necessarios para realizar a matricula no polo.
+
+---
+
+### 4. Melhorar o painel do Vendedor para visualizacao pelo admin
+
+O painel do vendedor ja existe em `/vendedor/dashboard`, mas precisa estar mais completo. Para o admin poder visualizar como ficou, basta fazer login com as credenciais do vendedor.
+
+Melhorias no painel do vendedor:
+- O link de matricula ja esta disponivel (secao "Gerar Link de Matricula")
+- Adicionar botao "Filtrar" igual ao dashboard admin
+- A tabela de matriculas mostra os cadastros realizados pelo vendedor
+
+**Arquivo:** `src/pages/vendedor/VendedorDashboard.tsx`
+- Adicionar botao "Filtrar" com mesmo comportamento do admin
+
+---
 
 ### Detalhes Tecnicos
 
-Arquivos modificados:
-- Nova migration SQL (via ferramenta de migration)
-- `src/pages/admin/AdminVendedores.tsx` -- delay no refetch + melhor erro
-- `supabase/functions/create-vendedor/index.ts` -- mensagem de erro mais clara para email duplicado
+Arquivos criados:
+- `src/pages/admin/AdminAlunos.tsx`
+
+Arquivos editados:
+- `src/pages/admin/AdminVendedores.tsx` -- credenciais de acesso em vez de link de matricula
+- `src/pages/admin/AdminDashboard.tsx` -- botao Filtrar + tabela condicional
+- `src/pages/vendedor/VendedorDashboard.tsx` -- botao Filtrar
+- `src/components/AdminLayout.tsx` -- link Alunos no menu
+- `src/App.tsx` -- rota /admin/alunos
+
+Nenhuma alteracao no banco de dados e necessaria.
 
