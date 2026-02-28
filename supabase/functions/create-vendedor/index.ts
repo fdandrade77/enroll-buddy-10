@@ -56,6 +56,13 @@ serve(async (req) => {
 
     const userId = authData.user.id;
 
+    // Create profile (trigger not active, so insert manually)
+    await adminClient.from("profiles").insert({
+      user_id: userId,
+      nome,
+      email,
+    });
+
     // Assign role
     await adminClient.from("user_roles").insert({ user_id: userId, role: "vendedor" });
 
