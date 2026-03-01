@@ -130,6 +130,15 @@ export default function AdminVendedores() {
 
   const confirmDelete = async () => {
     if (!deleteTarget) return;
+    // Delete from auth first via edge function
+    const { error: authDeleteError } = await supabase.functions.invoke("delete-vendedor", {
+      body: { user_id: deleteTarget.user_id },
+    });
+    if (authDeleteError) {
+      toast.error("Erro ao excluir vendedor do sistema de autenticação");
+      return;
+    }
+    // Then clean up database tables
     await supabase.from("vendedores").delete().eq("id", deleteTarget.id);
     await supabase.from("profiles").delete().eq("user_id", deleteTarget.user_id);
     await supabase.from("user_roles").delete().eq("user_id", deleteTarget.user_id);
