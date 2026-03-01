@@ -1,85 +1,55 @@
 
-## Plano de Implementacao -- 11 Melhorias
 
-### 1. Alterar email e senha do administrador
-- Adicionar pagina "Configuracoes" na area admin (`src/pages/admin/AdminConfig.tsx`)
-- Formulario com campos: novo email, nova senha, confirmar senha
-- Usar `supabase.auth.updateUser({ email, password })` para atualizar
-- Adicionar link "Configuracoes" no menu lateral (`AdminLayout.tsx`)
-- Adicionar rota `/admin/configuracoes` no `App.tsx`
+## Correcao de 3 Problemas
 
-### 2. Codigo unico do vendedor = nome (slug)
-- Alterar `AdminVendedores.tsx`: remover `generateSlug()` e usar o nome como base do codigo
-- Converter nome para slug (lowercase, sem acentos, sem espacos -> hifen ou junto)
-- Antes de criar, consultar `vendedores` para verificar se ja existe `codigo_ref` igual
-- Se existir, adicionar sufixo numerico: carlos, carlos1, carlos2...
-- Atualizar a Edge Function para receber o `codigo_ref` ja calculado (ja funciona assim)
+### 1. Erro ao cadastrar vendedor (Edge Function)
 
-### 3. Botao de excluir aluno (matricula)
-- Adicionar coluna "Acoes" na tabela de alunos em `AdminAlunos.tsx`
-- Botao com icone Trash2 + dialog de confirmacao (AlertDialog)
-- Criar migration para adicionar RLS policy de DELETE para admin na tabela `matriculas`
-- Chamar `supabase.from("matriculas").delete().eq("id", id)` ao confirmar
+**Causa raiz**: Quando voce exclui um vendedor pela interface, ele e removido das tabelas `vendedores`, `profiles` e `user_roles`, mas o usuario continua existindo no sistema de autenticacao. Ao tentar criar um novo vendedor com o mesmo email, o sistema retorna erro de "email ja existe".
 
-### 4. Comissao independente do status de pagamento
-- Em `AdminDashboard.tsx`:
-  - Alterar calculo de `comissaoTotal` para considerar TODAS as matriculas filtradas (nao apenas `status === "pago"`)
-  - Alterar `comissaoPorVendedor` para contar todas as matriculas (nao filtrar por `status === "pago"`)
-- Em `VendedorDashboard.tsx`:
-  - Mesmo ajuste: comissao calculada sobre todas as matriculas, nao apenas pagas
-- O campo pago/nao_pago continua servindo para visualizar inadimplentes
+**Solucao**:
+- Atualizar a Edge Function `create-vendedor` para primeiro verificar se ja existe um usuario com o mesmo email no auth. Se existir, reutilizar esse usuario ao inves de criar um novo.
+- Atualizar a funcao `confirmDelete` em `AdminVendedores.tsx` para tambem chamar uma nova Edge Function que deleta o usuario do auth (usando `admin.deleteUser`).
+- Criar uma nova Edge Function `delete-vendedor` que recebe o `user_id` e chama `adminClient.auth.admin.deleteUser(userId)`.
+- Limpar os dados orfaos atuais: usar a Edge Function para deletar o usuario auth do vendedor "teste" que ficou orfao.
 
-### 5. Excluir vendedor mesmo com alunos cadastrados
-- Alterar a FK `matriculas.vendedor_id -> vendedores.id` para incluir `ON DELETE SET NULL` (migration)
-- Tornar `matriculas.vendedor_id` nullable (migration)
-- Em `AdminVendedores.tsx`: manter o dialog de confirmacao que ja existe (usa `confirm()`, vou trocar por AlertDialog mais claro)
-- Mensagem: "Este vendedor possui alunos cadastrados. Deseja realmente excluir?"
+**Arquivos**:
+- `supabase/functions/delete-vendedor/index.ts` (novo)
+- `supabase/functions/create-vendedor/index.ts` (atualizar para tratar email duplicado)
+- `src/pages/admin/AdminVendedores.tsx` (chamar delete-vendedor antes de deletar dados)
 
-### 6. Campo "Senha cadastrada" na tela de vendedores
-- Adicionar coluna `senha_gerada` na tabela `vendedores` (migration) para armazenar a senha gerada no momento da criacao
-- Atualizar Edge Function `create-vendedor` para salvar a senha no campo
-- Exibir na tabela de vendedores a coluna "Senha" com valor mascarado e botao para revelar/copiar
-- Nota: a senha sera armazenada apenas para referencia administrativa
+### 2. Ativar protecao contra senhas vazadas
 
-### 7. Campo de materiais do curso (upload de arquivos)
-- Criar bucket de storage `curso-materiais` (migration)
-- Adicionar tabela `curso_materiais` com campos: id, curso_id (FK), nome_arquivo, url, tipo (text/pdf/image), criado_em
-- RLS: admin pode CRUD, vendedor pode SELECT
-- No formulario de cursos (`AdminCursos.tsx`): adicionar secao para upload de arquivos (aceitar .txt, .pdf, .png, .jpg, .webp)
-- Listar materiais existentes com opcao de excluir
-- No dashboard do vendedor, permitir visualizar materiais do curso
+- Usar a ferramenta de configuracao de autenticacao para habilitar a protecao contra senhas comprometidas (leaked password protection).
 
-### 8-11. Tela de matricula no formato da imagem
-- Redesenhar `PublicMatricula.tsx` seguindo o layout da imagem:
-  - Fundo escuro (preto), card centralizado com bordas arredondadas
-  - Logo FATEB centralizada no topo (copiar `user-uploads://logo.webp` para `src/assets/logo.webp`)
-  - Titulo "FICHA MATRICULA FATEB / SOBRAPPSI"
-  - Nome do curso em destaque dourado na parte superior (vindo do curso pre-selecionado ou do select)
-  - "Consultor: [Nome e Sobrenome do Vendedor]" -- buscar nome do vendedor via profiles join
-  - Mensagem de boas-vindas
-  - Campos em grid 2 colunas: Nome completo | CPF, E-mail | WhatsApp, Tipo de pagamento | Data de vencimento, De quantas vezes (condicional)
-  - Botao "Inscrever agora" dourado
-  - Inputs com fundo branco e bordas arredondadas
+### 3. Erro 404 na Hostinger para rotas SPA
+
+**Causa**: Aplicacoes SPA (Single Page Application) como esta usam rotas no frontend (ex: `/r/teste`). Quando voce acessa diretamente uma URL como `matriculafatebead.com.br/r/teste`, o servidor da Hostinger procura uma pasta `/r/teste` que nao existe e retorna 404. O servidor precisa ser configurado para redirecionar TODAS as rotas para o `index.html`.
+
+**Solucao**: Criar um arquivo `.htaccess` na raiz do projeto que sera incluido no build. Isso instrui o servidor Apache da Hostinger a redirecionar todas as requisicoes para `index.html`.
+
+**Arquivos**:
+- `public/.htaccess` (novo) -- com regra de rewrite para SPA
 
 ### Detalhes Tecnicos
 
-**Arquivos novos:**
-- `src/pages/admin/AdminConfig.tsx`
-- `src/assets/logo.webp` (copiado do upload)
+**Edge Function `delete-vendedor`**:
+```text
+Recebe: { user_id: string }
+Acao: adminClient.auth.admin.deleteUser(user_id)
+Valida: apenas admins podem chamar
+```
 
-**Arquivos modificados:**
-- `src/App.tsx` -- nova rota /admin/configuracoes
-- `src/components/AdminLayout.tsx` -- link Configuracoes no menu
-- `src/pages/admin/AdminVendedores.tsx` -- codigo=nome, campo senha, AlertDialog para exclusao
-- `src/pages/admin/AdminAlunos.tsx` -- botao excluir matricula
-- `src/pages/admin/AdminDashboard.tsx` -- comissao sem filtro de status
-- `src/pages/admin/AdminCursos.tsx` -- upload de materiais
-- `src/pages/vendedor/VendedorDashboard.tsx` -- comissao sem filtro de status
-- `src/pages/PublicMatricula.tsx` -- redesign completo
-- `supabase/functions/create-vendedor/index.ts` -- salvar senha_gerada
+**`.htaccess`**:
+```text
+RewriteEngine On
+RewriteBase /
+RewriteRule ^index\.html$ - [L]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule . /index.html [L]
+```
 
-**Migrations necessarias:**
-1. Adicionar coluna `senha_gerada` em `vendedores`
-2. Adicionar policy DELETE em `matriculas` para admin
-3. Alterar `matriculas.vendedor_id` para nullable + ON DELETE SET NULL
-4. Criar bucket `curso-materiais` e tabela `curso_materiais`
+**Fluxo de exclusao atualizado**:
+1. Chamar `delete-vendedor` com o `user_id` (deleta do auth)
+2. Deletar de `vendedores`, `profiles`, `user_roles` (ja existente)
+
