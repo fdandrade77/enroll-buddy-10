@@ -20,7 +20,6 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    // Verify caller is admin
     const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -42,7 +41,6 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Missing fields" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Create user with service role (doesn't affect admin session)
     const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
       email,
       password,
@@ -56,7 +54,7 @@ serve(async (req) => {
 
     const userId = authData.user.id;
 
-    // Create profile (trigger not active, so insert manually)
+    // Create profile
     await adminClient.from("profiles").insert({
       user_id: userId,
       nome,
@@ -66,7 +64,7 @@ serve(async (req) => {
     // Assign role
     await adminClient.from("user_roles").insert({ user_id: userId, role: "vendedor" });
 
-    // Create vendedor
+    // Create vendedor with senha_gerada
     const { error: vendError } = await adminClient.from("vendedores").insert({
       user_id: userId,
       codigo_ref,
@@ -74,6 +72,7 @@ serve(async (req) => {
       cpf,
       chave_pix,
       cnpj: cnpj || null,
+      senha_gerada: password,
     });
 
     if (vendError) {

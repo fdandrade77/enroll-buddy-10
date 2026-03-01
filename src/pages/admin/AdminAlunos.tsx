@@ -3,7 +3,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Search } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Search, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 export default function AdminAlunos() {
   const [matriculas, setMatriculas] = useState<any[]>([]);
@@ -14,20 +16,29 @@ export default function AdminAlunos() {
   const [filtroCurso, setFiltroCurso] = useState("all");
   const [filtroStatus, setFiltroStatus] = useState("all");
   const [showResults, setShowResults] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<any>(null);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      const [mRes, vRes, cRes] = await Promise.all([
-        supabase.from("matriculas").select("*, cursos(nome), vendedores(codigo_ref, user_id, profiles:user_id(nome))").order("criado_em", { ascending: false }),
-        supabase.from("vendedores").select("*, profiles:user_id(nome)"),
-        supabase.from("cursos").select("*"),
-      ]);
-      setMatriculas(mRes.data ?? []);
-      setVendedores(vRes.data ?? []);
-      setCursos(cRes.data ?? []);
-    };
+  const fetchData = async () => {
+    const [mRes, vRes, cRes] = await Promise.all([
+      supabase.from("matriculas").select("*, cursos(nome), vendedores(codigo_ref, user_id, profiles:user_id(nome))").order("criado_em", { ascending: false }),
+      supabase.from("vendedores").select("*, profiles:user_id(nome)"),
+      supabase.from("cursos").select("*"),
+    ]);
+    setMatriculas(mRes.data ?? []);
+    setVendedores(vRes.data ?? []);
+    setCursos(cRes.data ?? []);
+  };
+
+  useEffect(() => { fetchData(); }, []);
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    const { error } = await supabase.from("matriculas").delete().eq("id", deleteTarget.id);
+    if (error) { toast.error("Erro ao excluir: " + error.message); return; }
+    toast.success("Matrícula excluída");
+    setDeleteTarget(null);
     fetchData();
-  }, []);
+  };
 
   const filtered = matriculas.filter((m) => {
     if (filtroVendedor !== "all" && m.vendedor_id !== filtroVendedor) return false;
@@ -115,6 +126,7 @@ export default function AdminAlunos() {
                   <th className="text-left p-3 text-muted-foreground font-medium">Valor</th>
                   <th className="text-left p-3 text-muted-foreground font-medium">Status</th>
                   <th className="text-left p-3 text-muted-foreground font-medium">Data</th>
+                  <th className="text-left p-3 text-muted-foreground font-medium">Ações</th>
                 </tr>
               </thead>
               <tbody>
@@ -125,7 +137,7 @@ export default function AdminAlunos() {
                     <td className="p-3 text-foreground">{m.email}</td>
                     <td className="p-3 text-foreground">{m.whatsapp}</td>
                     <td className="p-3 text-foreground">{m.cursos?.nome}</td>
-                    <td className="p-3 text-foreground">{m.vendedores?.profiles?.nome ?? m.vendedores?.codigo_ref}</td>
+                    <td className="p-3 text-foreground">{m.vendedores?.profiles?.nome ?? m.vendedores?.codigo_ref ?? "—"}</td>
                     <td className="p-3 text-foreground">{m.tipo_pagamento === "a_vista" ? "À vista" : "Parcelado"}</td>
                     <td className="p-3 text-foreground">{m.quantidade_parcelas ?? "-"}</td>
                     <td className="p-3 text-foreground">{m.data_vencimento}</td>
@@ -138,16 +150,38 @@ export default function AdminAlunos() {
                       </span>
                     </td>
                     <td className="p-3 text-foreground">{new Date(m.criado_em).toLocaleDateString("pt-BR")}</td>
+                    <td className="p-3">
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive" onClick={() => setDeleteTarget(m)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </td>
                   </tr>
                 ))}
                 {filtered.length === 0 && (
-                  <tr><td colSpan={12} className="p-8 text-center text-muted-foreground">Nenhuma matrícula encontrada</td></tr>
+                  <tr><td colSpan={13} className="p-8 text-center text-muted-foreground">Nenhuma matrícula encontrada</td></tr>
                 )}
               </tbody>
             </table>
           </div>
         </div>
       )}
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir matrícula?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Deseja realmente excluir a matrícula de "{deleteTarget?.nome_completo}"? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
