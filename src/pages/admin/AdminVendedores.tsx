@@ -25,7 +25,7 @@ export default function AdminVendedores() {
   const [vendedores, setVendedores] = useState<VendedorRow[]>([]);
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ nome: "", email: "", whatsapp: "", cpf: "", chave_pix: "", cnpj: "" });
+  const [form, setForm] = useState({ nome: "", email: "", whatsapp: "", cpf: "", chave_pix: "", cnpj: "", senha: "" });
   const [createdPassword, setCreatedPassword] = useState<string | null>(null);
   const [createdLink, setCreatedLink] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<VendedorRow | null>(null);
@@ -66,12 +66,12 @@ export default function AdminVendedores() {
   };
 
   const handleCreate = async () => {
-    if (!form.nome || !form.email || !form.whatsapp || !form.cpf || !form.chave_pix) {
+    if (!form.nome || !form.email || !form.senha || !form.whatsapp || !form.cpf || !form.chave_pix) {
       toast.error("Preencha todos os campos obrigatórios");
       return;
     }
 
-    const password = generatePassword();
+    const password = form.senha;
     const codigoRef = await generateCodigoRef(form.nome);
 
     const response = await supabase.functions.invoke("create-vendedor", {
@@ -149,7 +149,7 @@ export default function AdminVendedores() {
 
   const openCreate = () => {
     setEditingId(null);
-    setForm({ nome: "", email: "", whatsapp: "", cpf: "", chave_pix: "", cnpj: "" });
+    setForm({ nome: "", email: "", whatsapp: "", cpf: "", chave_pix: "", cnpj: "", senha: "" });
     setCreatedPassword(null);
     setCreatedLink(null);
     setOpen(true);
@@ -164,6 +164,7 @@ export default function AdminVendedores() {
       cpf: v.cpf,
       chave_pix: v.chave_pix,
       cnpj: v.cnpj ?? "",
+      senha: "",
     });
     setCreatedPassword(null);
     setCreatedLink(null);
@@ -233,10 +234,16 @@ export default function AdminVendedores() {
                   <Input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} />
                 </div>
                 {!editingId && (
-                  <div className="space-y-2">
-                    <Label>E-mail *</Label>
-                    <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-                  </div>
+                  <>
+                    <div className="space-y-2">
+                      <Label>E-mail *</Label>
+                      <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Senha *</Label>
+                      <Input type="text" value={form.senha} onChange={(e) => setForm({ ...form, senha: e.target.value })} placeholder="Digite a senha do vendedor" />
+                    </div>
+                  </>
                 )}
                 <div className="space-y-2">
                   <Label>WhatsApp *</Label>

@@ -14,6 +14,7 @@ import AdminCursos from "./pages/admin/AdminCursos";
 import AdminAlunos from "./pages/admin/AdminAlunos";
 import AdminConfig from "./pages/admin/AdminConfig";
 import VendedorDashboard from "./pages/vendedor/VendedorDashboard";
+import VendedorCursos from "./pages/vendedor/VendedorCursos";
 import PublicMatricula from "./pages/PublicMatricula";
 import NotFound from "./pages/NotFound";
 
@@ -41,6 +42,7 @@ const App = () => (
 
             <Route path="/vendedor" element={<ProtectedRoute requiredRole="vendedor"><VendedorLayout /></ProtectedRoute>}>
               <Route path="dashboard" element={<VendedorDashboard />} />
+              <Route path="cursos" element={<VendedorCursos />} />
             </Route>
 
             <Route path="*" element={<NotFound />} />
