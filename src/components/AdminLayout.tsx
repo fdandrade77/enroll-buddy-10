@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { LayoutDashboard, Users, BookOpen, GraduationCap, LogOut, Settings } from "lucide-react";
+import { LayoutDashboard, Users, BookOpen, GraduationCap, LogOut, Settings, Menu, X } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const links = [
   { to: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -13,24 +15,50 @@ const links = [
 export function AdminLayout() {
   const { signOut, user } = useAuth();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const handleSignOut = async () => {
     await signOut();
     navigate("/login");
   };
 
+  const closeSidebar = () => {
+    if (isMobile) setSidebarOpen(false);
+  };
+
   return (
     <div className="flex min-h-screen">
-      <aside className="w-64 bg-sidebar text-sidebar-foreground flex flex-col">
-        <div className="p-6 border-b border-sidebar-border">
-          <h1 className="text-lg font-bold text-sidebar-primary-foreground">Painel Admin</h1>
-          <p className="text-xs text-sidebar-foreground/60 mt-1 truncate">{user?.email}</p>
+      {/* Mobile overlay */}
+      {isMobile && sidebarOpen && (
+        <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setSidebarOpen(false)} />
+      )}
+
+      {/* Sidebar */}
+      <aside
+        className={`${
+          isMobile
+            ? `fixed inset-y-0 left-0 z-50 w-64 transform transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`
+            : "w-64"
+        } bg-sidebar text-sidebar-foreground flex flex-col`}
+      >
+        <div className="p-6 border-b border-sidebar-border flex items-center justify-between">
+          <div>
+            <h1 className="text-lg font-bold text-sidebar-primary-foreground">Painel Admin</h1>
+            <p className="text-xs text-sidebar-foreground/60 mt-1 truncate">{user?.email}</p>
+          </div>
+          {isMobile && (
+            <button onClick={() => setSidebarOpen(false)} className="text-sidebar-foreground/70 hover:text-sidebar-foreground">
+              <X className="h-5 w-5" />
+            </button>
+          )}
         </div>
         <nav className="flex-1 p-4 space-y-1">
           {links.map((l) => (
             <NavLink
               key={l.to}
               to={l.to}
+              onClick={closeSidebar}
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                   isActive
@@ -54,8 +82,18 @@ export function AdminLayout() {
           </button>
         </div>
       </aside>
+
       <main className="flex-1 bg-background overflow-auto">
-        <div className="p-8">
+        {/* Mobile header */}
+        {isMobile && (
+          <header className="sticky top-0 z-30 bg-background border-b border-border px-4 py-3 flex items-center gap-3">
+            <button onClick={() => setSidebarOpen(true)} className="text-foreground">
+              <Menu className="h-6 w-6" />
+            </button>
+            <span className="text-sm font-semibold text-foreground">Painel Admin</span>
+          </header>
+        )}
+        <div className="p-4 md:p-8">
           <Outlet />
         </div>
       </main>
