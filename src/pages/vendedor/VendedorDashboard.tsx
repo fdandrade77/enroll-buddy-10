@@ -56,7 +56,6 @@ export default function VendedorDashboard() {
   const totalPago = filtered.filter((m) => m.status === "pago").length;
   const totalNaoPago = filtered.filter((m) => m.status === "nao_pago").length;
   const comissao = filtered
-    .filter((m) => m.status === "pago")
     .reduce((sum, m) => sum + (m.cursos?.comissao_primeira_parcela ?? 0), 0);
 
   const link = vendedor ? `${window.location.origin}/r/${vendedor.codigo_ref}` : "";

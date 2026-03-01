@@ -43,7 +43,6 @@ export default function AdminDashboard() {
   const totalPago = filtered.filter((m) => m.status === "pago").length;
   const totalNaoPago = filtered.filter((m) => m.status === "nao_pago").length;
   const comissaoTotal = filtered
-    .filter((m) => m.status === "pago")
     .reduce((sum, m) => sum + (m.cursos?.comissao_primeira_parcela ?? 0), 0);
 
   const toggleStatus = async (id: string, currentStatus: string) => {
@@ -72,7 +71,7 @@ export default function AdminDashboard() {
 
   // Comissão por vendedor
   const comissaoPorVendedor = vendedores.map((v) => {
-    const ms = filtered.filter((m) => m.vendedor_id === v.id && m.status === "pago");
+    const ms = filtered.filter((m) => m.vendedor_id === v.id);
     const total = ms.reduce((s, m) => s + m.valor_total, 0);
     const comissao = ms.reduce((s, m) => s + (m.cursos?.comissao_primeira_parcela ?? 0), 0);
     return { nome: v.profiles?.nome ?? v.codigo_ref, total, comissao, count: ms.length };
@@ -204,8 +203,8 @@ export default function AdminDashboard() {
             <thead>
               <tr className="border-b border-border">
                 <th className="text-left p-3 text-muted-foreground font-medium">Vendedor</th>
-                <th className="text-left p-3 text-muted-foreground font-medium">Matrículas Pagas</th>
-                <th className="text-left p-3 text-muted-foreground font-medium">Total Pago</th>
+                <th className="text-left p-3 text-muted-foreground font-medium">Matrículas</th>
+                <th className="text-left p-3 text-muted-foreground font-medium">Total</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">Comissão</th>
               </tr>
             </thead>

@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight } from "lucide-react";
+import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, Upload, FileText, Image, X } from "lucide-react";
 
 interface CursoRow {
   id: string;
@@ -17,11 +17,23 @@ interface CursoRow {
   criado_em: string;
 }
 
+interface MaterialRow {
+  id: string;
+  curso_id: string;
+  nome_arquivo: string;
+  url: string;
+  tipo: string;
+  criado_em: string;
+}
+
 export default function AdminCursos() {
   const [cursos, setCursos] = useState<CursoRow[]>([]);
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ nome: "", valor_total: "", max_parcelas: "", comissao_primeira_parcela: "" });
+  const [materiaisOpen, setMateriaisOpen] = useState<string | null>(null);
+  const [materiais, setMateriais] = useState<MaterialRow[]>([]);
+  const [uploading, setUploading] = useState(false);
 
   const fetchCursos = async () => {
     const { data } = await supabase.from("cursos").select("*").order("criado_em", { ascending: false });
@@ -29,6 +41,11 @@ export default function AdminCursos() {
   };
 
   useEffect(() => { fetchCursos(); }, []);
+
+  const fetchMateriais = async (cursoId: string) => {
+    const { data } = await supabase.from("curso_materiais").select("*").eq("curso_id", cursoId).order("criado_em", { ascending: false });
+    setMateriais(data as MaterialRow[] ?? []);
+  };
 
   const handleSave = async () => {
     if (!form.nome || !form.valor_total || !form.max_parcelas || !form.comissao_primeira_parcela) {
@@ -87,6 +104,58 @@ export default function AdminCursos() {
     });
     setOpen(true);
   };
+
+  const openMateriais = (cursoId: string) => {
+    setMateriaisOpen(cursoId);
+    fetchMateriais(cursoId);
+  };
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || !materiaisOpen) return;
+    setUploading(true);
+
+    for (const file of Array.from(e.target.files)) {
+      const ext = file.name.split(".").pop()?.toLowerCase();
+      const allowed = ["txt", "pdf", "png", "jpg", "jpeg", "webp"];
+      if (!allowed.includes(ext ?? "")) {
+        toast.error(`Tipo não permitido: ${ext}`);
+        continue;
+      }
+
+      const filePath = `${materiaisOpen}/${Date.now()}_${file.name}`;
+      const { error: uploadError } = await supabase.storage.from("curso-materiais").upload(filePath, file);
+      if (uploadError) { toast.error(`Erro ao enviar ${file.name}: ${uploadError.message}`); continue; }
+
+      const { data: urlData } = supabase.storage.from("curso-materiais").getPublicUrl(filePath);
+
+      const tipo = ["png", "jpg", "jpeg", "webp"].includes(ext ?? "") ? "image" : ext === "pdf" ? "pdf" : "text";
+
+      await supabase.from("curso_materiais").insert({
+        curso_id: materiaisOpen,
+        nome_arquivo: file.name,
+        url: urlData.publicUrl,
+        tipo,
+      });
+    }
+
+    setUploading(false);
+    toast.success("Arquivo(s) enviado(s)!");
+    fetchMateriais(materiaisOpen);
+    e.target.value = "";
+  };
+
+  const deleteMaterial = async (mat: MaterialRow) => {
+    // Extract path from URL
+    const urlParts = mat.url.split("/curso-materiais/");
+    if (urlParts[1]) {
+      await supabase.storage.from("curso-materiais").remove([decodeURIComponent(urlParts[1])]);
+    }
+    await supabase.from("curso_materiais").delete().eq("id", mat.id);
+    toast.success("Material excluído");
+    if (materiaisOpen) fetchMateriais(materiaisOpen);
+  };
+
+  const materiaisCursoNome = cursos.find((c) => c.id === materiaisOpen)?.nome ?? "";
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -158,6 +227,9 @@ export default function AdminCursos() {
                       <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => toggleAtivo(c)}>
                         {c.ativo ? <ToggleRight className="h-3.5 w-3.5" /> : <ToggleLeft className="h-3.5 w-3.5" />}
                       </Button>
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => openMateriais(c.id)} title="Materiais">
+                        <Upload className="h-3.5 w-3.5" />
+                      </Button>
                       <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive" onClick={() => handleDelete(c.id)}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
@@ -172,6 +244,51 @@ export default function AdminCursos() {
           </table>
         </div>
       </div>
+
+      {/* Materiais Dialog */}
+      <Dialog open={!!materiaisOpen} onOpenChange={(open) => !open && setMateriaisOpen(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Materiais — {materiaisCursoNome}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Enviar arquivos (PDF, TXT, PNG, JPG, WEBP)</Label>
+              <Input
+                type="file"
+                multiple
+                accept=".txt,.pdf,.png,.jpg,.jpeg,.webp"
+                onChange={handleUpload}
+                disabled={uploading}
+                className="mt-2"
+              />
+              {uploading && <p className="text-xs text-muted-foreground mt-1">Enviando...</p>}
+            </div>
+
+            {materiais.length > 0 && (
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {materiais.map((mat) => (
+                  <div key={mat.id} className="flex items-center justify-between bg-muted/50 rounded-lg px-3 py-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      {mat.tipo === "image" ? <Image className="h-4 w-4 text-muted-foreground shrink-0" /> : <FileText className="h-4 w-4 text-muted-foreground shrink-0" />}
+                      <a href={mat.url} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline truncate">
+                        {mat.nome_arquivo}
+                      </a>
+                    </div>
+                    <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-destructive shrink-0" onClick={() => deleteMaterial(mat)}>
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {materiais.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-4">Nenhum material cadastrado</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

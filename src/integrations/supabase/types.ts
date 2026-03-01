@@ -14,6 +14,41 @@ export type Database = {
   }
   public: {
     Tables: {
+      curso_materiais: {
+        Row: {
+          criado_em: string
+          curso_id: string
+          id: string
+          nome_arquivo: string
+          tipo: string
+          url: string
+        }
+        Insert: {
+          criado_em?: string
+          curso_id: string
+          id?: string
+          nome_arquivo: string
+          tipo?: string
+          url: string
+        }
+        Update: {
+          criado_em?: string
+          curso_id?: string
+          id?: string
+          nome_arquivo?: string
+          tipo?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curso_materiais_curso_id_fkey"
+            columns: ["curso_id"]
+            isOneToOne: false
+            referencedRelation: "cursos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cursos: {
         Row: {
           ativo: boolean
@@ -57,7 +92,7 @@ export type Database = {
           status: Database["public"]["Enums"]["status_matricula"]
           tipo_pagamento: Database["public"]["Enums"]["tipo_pagamento"]
           valor_total: number
-          vendedor_id: string
+          vendedor_id: string | null
           whatsapp: string
         }
         Insert: {
@@ -72,7 +107,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["status_matricula"]
           tipo_pagamento: Database["public"]["Enums"]["tipo_pagamento"]
           valor_total: number
-          vendedor_id: string
+          vendedor_id?: string | null
           whatsapp: string
         }
         Update: {
@@ -87,7 +122,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["status_matricula"]
           tipo_pagamento?: Database["public"]["Enums"]["tipo_pagamento"]
           valor_total?: number
-          vendedor_id?: string
+          vendedor_id?: string | null
           whatsapp?: string
         }
         Relationships: [
@@ -160,6 +195,7 @@ export type Database = {
           cpf: string
           criado_em: string
           id: string
+          senha_gerada: string | null
           user_id: string
           whatsapp: string
         }
@@ -170,6 +206,7 @@ export type Database = {
           cpf: string
           criado_em?: string
           id?: string
+          senha_gerada?: string | null
           user_id: string
           whatsapp: string
         }
@@ -180,6 +217,7 @@ export type Database = {
           cpf?: string
           criado_em?: string
           id?: string
+          senha_gerada?: string | null
           user_id?: string
           whatsapp?: string
         }

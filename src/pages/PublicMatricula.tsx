@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { GraduationCap, CheckCircle } from "lucide-react";
+import { CheckCircle } from "lucide-react";
+import logo from "@/assets/logo.webp";
 
 export default function PublicMatricula() {
   const { codigo } = useParams<{ codigo: string }>();
@@ -10,6 +11,7 @@ export default function PublicMatricula() {
   const preselectedCurso = searchParams.get("curso_id");
 
   const [vendedor, setVendedor] = useState<any>(null);
+  const [vendedorNome, setVendedorNome] = useState("");
   const [cursos, setCursos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -27,21 +29,22 @@ export default function PublicMatricula() {
   });
 
   useEffect(() => {
-    const fetch = async () => {
+    const fetchData = async () => {
       const { data: vData } = await supabase
         .from("vendedores")
-        .select("*")
+        .select("*, profiles:user_id(nome)")
         .eq("codigo_ref", codigo)
         .single();
 
       if (!vData) { setLoading(false); return; }
       setVendedor(vData);
+      setVendedorNome((vData as any).profiles?.nome ?? "");
 
       const { data: cData } = await supabase.from("cursos").select("*").eq("ativo", true);
       setCursos(cData ?? []);
       setLoading(false);
     };
-    fetch();
+    fetchData();
   }, [codigo]);
 
   const selectedCurso = cursos.find((c) => c.id === form.curso_id);
@@ -118,102 +121,101 @@ export default function PublicMatricula() {
     );
   }
 
+  const inputClass = "w-full rounded-xl border-0 bg-white px-4 py-3 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gold/50 transition text-sm";
+  const selectClass = "w-full rounded-xl border-0 bg-white px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-gold/50 transition text-sm";
+  const labelClass = "block text-sm font-medium text-public-foreground mb-1.5";
+
   return (
     <div className="min-h-screen bg-public-bg flex items-center justify-center px-4 py-10">
-      <div className="bg-public-card border border-public-border rounded-2xl p-8 max-w-lg w-full">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center h-14 w-14 rounded-full bg-gold/10 mb-4">
-            <GraduationCap className="h-7 w-7 text-gold" />
-          </div>
-          <h1 className="text-2xl font-bold text-public-foreground">Formulário de Matrícula</h1>
-          <p className="text-sm text-public-foreground/50 mt-1">Preencha seus dados para se inscrever</p>
+      <div className="bg-public-card border border-public-border rounded-2xl p-8 max-w-2xl w-full">
+        {/* Logo */}
+        <div className="flex justify-center mb-6">
+          <img src={logo} alt="FATEB Logo" className="h-24 object-contain" />
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-public-foreground mb-1.5">Nome completo *</label>
-            <input
-              className="w-full rounded-xl border border-public-border bg-public-bg px-4 py-3 text-public-foreground placeholder:text-public-foreground/30 focus:outline-none focus:ring-2 focus:ring-gold/50 transition"
-              value={form.nome_completo}
-              onChange={(e) => setForm({ ...form, nome_completo: e.target.value })}
-              placeholder="Seu nome completo"
-              required
-            />
-          </div>
+        {/* Title */}
+        <h1 className="text-xl md:text-2xl font-bold text-public-foreground text-center mb-2 tracking-wide">
+          FICHA MATRÍCULA FATEB / SOBRAPPSI
+        </h1>
 
-          <div>
-            <label className="block text-sm font-medium text-public-foreground mb-1.5">CPF *</label>
-            <input
-              className="w-full rounded-xl border border-public-border bg-public-bg px-4 py-3 text-public-foreground placeholder:text-public-foreground/30 focus:outline-none focus:ring-2 focus:ring-gold/50 transition"
-              value={form.cpf}
-              onChange={(e) => setForm({ ...form, cpf: e.target.value })}
-              placeholder="000.000.000-00"
-              required
-            />
-          </div>
+        {/* Course name */}
+        {selectedCurso && (
+          <p className="text-center text-sm mb-1">
+            <span className="text-public-foreground/70">Inscrição no curso: </span>
+            <span className="text-gold font-semibold">{selectedCurso.nome}</span>
+          </p>
+        )}
 
-          <div>
-            <label className="block text-sm font-medium text-public-foreground mb-1.5">E-mail *</label>
-            <input
-              type="email"
-              className="w-full rounded-xl border border-public-border bg-public-bg px-4 py-3 text-public-foreground placeholder:text-public-foreground/30 focus:outline-none focus:ring-2 focus:ring-gold/50 transition"
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-              placeholder="seu@email.com"
-              required
-            />
-          </div>
+        {/* Consultor */}
+        <p className="text-center text-sm mb-2">
+          <span className="text-public-foreground/70">Consultor: </span>
+          <span className="text-gold font-semibold">{vendedorNome}</span>
+        </p>
 
-          <div>
-            <label className="block text-sm font-medium text-public-foreground mb-1.5">WhatsApp *</label>
-            <input
-              className="w-full rounded-xl border border-public-border bg-public-bg px-4 py-3 text-public-foreground placeholder:text-public-foreground/30 focus:outline-none focus:ring-2 focus:ring-gold/50 transition"
-              value={form.whatsapp}
-              onChange={(e) => setForm({ ...form, whatsapp: e.target.value })}
-              placeholder="(11) 99999-9999"
-              required
-            />
-          </div>
+        {/* Welcome message */}
+        <p className="text-center text-xs text-public-foreground/50 mb-8">
+          É um prazer te receber no Grupo FATEB, para dar início a essa jornada, preencha os dados abaixo
+        </p>
 
-          <div>
-            <label className="block text-sm font-medium text-public-foreground mb-1.5">Curso *</label>
-            <select
-              className="w-full rounded-xl border border-public-border bg-public-bg px-4 py-3 text-public-foreground focus:outline-none focus:ring-2 focus:ring-gold/50 transition"
-              value={form.curso_id}
-              onChange={(e) => setForm({ ...form, curso_id: e.target.value })}
-              required
-            >
-              <option value="">Selecione um curso</option>
-              {cursos.map((c) => (
-                <option key={c.id} value={c.id}>{c.nome} — R$ {Number(c.valor_total).toFixed(2)}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-public-foreground mb-1.5">Tipo de pagamento *</label>
-            <select
-              className="w-full rounded-xl border border-public-border bg-public-bg px-4 py-3 text-public-foreground focus:outline-none focus:ring-2 focus:ring-gold/50 transition"
-              value={form.tipo_pagamento}
-              onChange={(e) => setForm({ ...form, tipo_pagamento: e.target.value as any, quantidade_parcelas: "" })}
-              required
-            >
-              <option value="">Selecione</option>
-              <option value="a_vista">À vista</option>
-              <option value="parcelado">Parcelado</option>
-            </select>
-          </div>
-
-          {form.tipo_pagamento === "parcelado" && selectedCurso && (
+        <form onSubmit={handleSubmit} className="space-y-5">
+          {/* Row 1: Nome + CPF */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-public-foreground mb-1.5">De quantas vezes? *</label>
-              <select
-                className="w-full rounded-xl border border-public-border bg-public-bg px-4 py-3 text-public-foreground focus:outline-none focus:ring-2 focus:ring-gold/50 transition"
-                value={form.quantidade_parcelas}
-                onChange={(e) => setForm({ ...form, quantidade_parcelas: e.target.value })}
-                required
-              >
+              <label className={labelClass}>Nome completo:</label>
+              <input className={inputClass} value={form.nome_completo} onChange={(e) => setForm({ ...form, nome_completo: e.target.value })} required />
+            </div>
+            <div>
+              <label className={labelClass}>CPF:</label>
+              <input className={inputClass} value={form.cpf} onChange={(e) => setForm({ ...form, cpf: e.target.value })} placeholder="000.000.000-00" required />
+            </div>
+          </div>
+
+          {/* Row 2: Email + WhatsApp */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>E-mail:</label>
+              <input type="email" className={inputClass} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
+            </div>
+            <div>
+              <label className={labelClass}>Whatsapp:</label>
+              <input className={inputClass} value={form.whatsapp} onChange={(e) => setForm({ ...form, whatsapp: e.target.value })} placeholder="(11) 99999-9999" required />
+            </div>
+          </div>
+
+          {/* Curso selector (if not preselected) */}
+          {!preselectedCurso && (
+            <div>
+              <label className={labelClass}>Curso:</label>
+              <select className={selectClass} value={form.curso_id} onChange={(e) => setForm({ ...form, curso_id: e.target.value })} required>
+                <option value="">Selecione um curso</option>
+                {cursos.map((c) => (
+                  <option key={c.id} value={c.id}>{c.nome} — R$ {Number(c.valor_total).toFixed(2)}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Row 3: Tipo pagamento + Data vencimento */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>Tipo de pagamento:</label>
+              <select className={selectClass} value={form.tipo_pagamento} onChange={(e) => setForm({ ...form, tipo_pagamento: e.target.value as any, quantidade_parcelas: "" })} required>
+                <option value="">Selecione</option>
+                <option value="a_vista">À vista</option>
+                <option value="parcelado">Parcelado</option>
+              </select>
+            </div>
+            <div>
+              <label className={labelClass}>Data de vencimento:</label>
+              <input type="date" className={inputClass} value={form.data_vencimento} onChange={(e) => setForm({ ...form, data_vencimento: e.target.value })} required />
+            </div>
+          </div>
+
+          {/* Parcelas */}
+          {form.tipo_pagamento === "parcelado" && selectedCurso && (
+            <div className="md:w-1/2">
+              <label className={labelClass}>De quantas vezes:</label>
+              <select className={selectClass} value={form.quantidade_parcelas} onChange={(e) => setForm({ ...form, quantidade_parcelas: e.target.value })} required>
                 <option value="">Selecione</option>
                 {Array.from({ length: selectedCurso.max_parcelas }, (_, i) => i + 1).map((n) => (
                   <option key={n} value={n}>{n}x de R$ {(selectedCurso.valor_total / n).toFixed(2)}</option>
@@ -222,24 +224,16 @@ export default function PublicMatricula() {
             </div>
           )}
 
-          <div>
-            <label className="block text-sm font-medium text-public-foreground mb-1.5">Data de vencimento *</label>
-            <input
-              type="date"
-              className="w-full rounded-xl border border-public-border bg-public-bg px-4 py-3 text-public-foreground focus:outline-none focus:ring-2 focus:ring-gold/50 transition"
-              value={form.data_vencimento}
-              onChange={(e) => setForm({ ...form, data_vencimento: e.target.value })}
-              required
-            />
+          {/* Submit */}
+          <div className="pt-4 flex justify-center">
+            <button
+              type="submit"
+              disabled={submitting}
+              className="w-full max-w-sm rounded-xl bg-gold text-gold-foreground font-bold py-3.5 hover:brightness-110 transition disabled:opacity-50 text-lg"
+            >
+              {submitting ? "Enviando..." : "Inscrever agora"}
+            </button>
           </div>
-
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full rounded-xl bg-gold text-gold-foreground font-bold py-3.5 mt-2 hover:brightness-110 transition disabled:opacity-50"
-          >
-            {submitting ? "Enviando..." : "Inscrever agora"}
-          </button>
         </form>
       </div>
     </div>

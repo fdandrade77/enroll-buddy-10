@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Plus, Copy, Pencil, Trash2, ToggleLeft, ToggleRight } from "lucide-react";
+import { Plus, Copy, Pencil, Trash2, ToggleLeft, ToggleRight, Eye, EyeOff } from "lucide-react";
 
 interface VendedorRow {
   id: string;
@@ -15,6 +16,7 @@ interface VendedorRow {
   cpf: string;
   chave_pix: string;
   cnpj: string | null;
+  senha_gerada: string | null;
   criado_em: string;
   profiles: { nome: string; email: string; ativo: boolean } | null;
 }
@@ -26,6 +28,8 @@ export default function AdminVendedores() {
   const [form, setForm] = useState({ nome: "", email: "", whatsapp: "", cpf: "", chave_pix: "", cnpj: "" });
   const [createdPassword, setCreatedPassword] = useState<string | null>(null);
   const [createdLink, setCreatedLink] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<VendedorRow | null>(null);
+  const [visiblePasswords, setVisiblePasswords] = useState<Set<string>>(new Set());
 
   const fetchVendedores = async () => {
     const { data } = await supabase
@@ -37,9 +41,23 @@ export default function AdminVendedores() {
 
   useEffect(() => { fetchVendedores(); }, []);
 
-  const generateSlug = () => {
-    const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
-    return Array.from({ length: 8 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+  const generateCodigoRef = async (nome: string): Promise<string> => {
+    const base = nome.toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .replace(/\s+/g, "")
+      .replace(/[^a-z0-9]/g, "");
+
+    const { data: existing } = await supabase
+      .from("vendedores")
+      .select("codigo_ref")
+      .ilike("codigo_ref", `${base}%`);
+
+    const codes = (existing ?? []).map((v: any) => v.codigo_ref);
+    if (!codes.includes(base)) return base;
+
+    let i = 1;
+    while (codes.includes(`${base}${i}`)) i++;
+    return `${base}${i}`;
   };
 
   const generatePassword = () => {
@@ -54,11 +72,8 @@ export default function AdminVendedores() {
     }
 
     const password = generatePassword();
-    const codigoRef = generateSlug();
+    const codigoRef = await generateCodigoRef(form.nome);
 
-    // Create auth user
-    // Use edge function to create vendedor without logging out admin
-    const { data: sessionData } = await supabase.auth.getSession();
     const response = await supabase.functions.invoke("create-vendedor", {
       body: {
         nome: form.nome,
@@ -84,7 +99,6 @@ export default function AdminVendedores() {
     setCreatedPassword(password);
     setCreatedLink(`${window.location.origin}/r/${codigoRef}`);
     toast.success("Vendedor criado com sucesso!");
-    // Small delay to allow the trigger to create the profile
     setTimeout(() => fetchVendedores(), 1500);
   };
 
@@ -114,12 +128,13 @@ export default function AdminVendedores() {
     fetchVendedores();
   };
 
-  const handleDelete = async (v: VendedorRow) => {
-    if (!confirm("Tem certeza que deseja excluir este vendedor?")) return;
-    await supabase.from("vendedores").delete().eq("id", v.id);
-    await supabase.from("profiles").delete().eq("user_id", v.user_id);
-    await supabase.from("user_roles").delete().eq("user_id", v.user_id);
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    await supabase.from("vendedores").delete().eq("id", deleteTarget.id);
+    await supabase.from("profiles").delete().eq("user_id", deleteTarget.user_id);
+    await supabase.from("user_roles").delete().eq("user_id", deleteTarget.user_id);
     toast.success("Vendedor excluído");
+    setDeleteTarget(null);
     fetchVendedores();
   };
 
@@ -151,6 +166,14 @@ export default function AdminVendedores() {
     toast.success("Copiado!");
   };
 
+  const togglePasswordVisibility = (id: string) => {
+    setVisiblePasswords((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
@@ -173,27 +196,21 @@ export default function AdminVendedores() {
                       <p className="text-xs text-muted-foreground">E-mail:</p>
                       <div className="flex items-center gap-2">
                         <code className="text-sm bg-muted px-2 py-1 rounded">{form.email}</code>
-                        <Button size="sm" variant="ghost" onClick={() => copyToClipboard(form.email)}>
-                          <Copy className="h-3 w-3" />
-                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => copyToClipboard(form.email)}><Copy className="h-3 w-3" /></Button>
                       </div>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Senha gerada:</p>
                       <div className="flex items-center gap-2">
                         <code className="text-sm bg-muted px-2 py-1 rounded">{createdPassword}</code>
-                        <Button size="sm" variant="ghost" onClick={() => copyToClipboard(createdPassword)}>
-                          <Copy className="h-3 w-3" />
-                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => copyToClipboard(createdPassword)}><Copy className="h-3 w-3" /></Button>
                       </div>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Link de acesso à plataforma:</p>
                       <div className="flex items-center gap-2">
                         <code className="text-xs bg-muted px-2 py-1 rounded break-all">{`${window.location.origin}/login`}</code>
-                        <Button size="sm" variant="ghost" onClick={() => copyToClipboard(`${window.location.origin}/login`)}>
-                          <Copy className="h-3 w-3" />
-                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => copyToClipboard(`${window.location.origin}/login`)}><Copy className="h-3 w-3" /></Button>
                       </div>
                     </div>
                   </div>
@@ -244,6 +261,7 @@ export default function AdminVendedores() {
               <tr className="border-b border-border bg-muted/50">
                 <th className="text-left p-3 text-muted-foreground font-medium">Nome</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">E-mail</th>
+                <th className="text-left p-3 text-muted-foreground font-medium">Senha</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">WhatsApp</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">CPF</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">Código</th>
@@ -256,6 +274,23 @@ export default function AdminVendedores() {
                 <tr key={v.id} className="border-b border-border hover:bg-muted/30 transition-colors">
                   <td className="p-3 text-foreground">{v.profiles?.nome}</td>
                   <td className="p-3 text-foreground">{v.profiles?.email}</td>
+                  <td className="p-3 text-foreground">
+                    {v.senha_gerada ? (
+                      <div className="flex items-center gap-1">
+                        <code className="text-xs bg-muted px-1.5 py-0.5 rounded">
+                          {visiblePasswords.has(v.id) ? v.senha_gerada : "••••••••"}
+                        </code>
+                        <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => togglePasswordVisibility(v.id)}>
+                          {visiblePasswords.has(v.id) ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => copyToClipboard(v.senha_gerada!)}>
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground text-xs">—</span>
+                    )}
+                  </td>
                   <td className="p-3 text-foreground">{v.whatsapp}</td>
                   <td className="p-3 text-foreground">{v.cpf}</td>
                   <td className="p-3">
@@ -268,9 +303,7 @@ export default function AdminVendedores() {
                   </td>
                   <td className="p-3">
                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                      v.profiles?.ativo
-                        ? "bg-success/10 text-success"
-                        : "bg-destructive/10 text-destructive"
+                      v.profiles?.ativo ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"
                     }`}>
                       {v.profiles?.ativo ? "Sim" : "Não"}
                     </span>
@@ -283,7 +316,7 @@ export default function AdminVendedores() {
                       <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => toggleAtivo(v)}>
                         {v.profiles?.ativo ? <ToggleRight className="h-3.5 w-3.5" /> : <ToggleLeft className="h-3.5 w-3.5" />}
                       </Button>
-                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive" onClick={() => handleDelete(v)}>
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive" onClick={() => setDeleteTarget(v)}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>
@@ -291,12 +324,31 @@ export default function AdminVendedores() {
                 </tr>
               ))}
               {vendedores.length === 0 && (
-                <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">Nenhum vendedor cadastrado</td></tr>
+                <tr><td colSpan={8} className="p-8 text-center text-muted-foreground">Nenhum vendedor cadastrado</td></tr>
               )}
             </tbody>
           </table>
         </div>
       </div>
+
+      {/* Delete confirmation */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir vendedor?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget?.profiles?.nome ? `Deseja realmente excluir o vendedor "${deleteTarget.profiles.nome}"?` : "Deseja realmente excluir este vendedor?"} 
+              {" "}Os alunos cadastrados por este vendedor serão mantidos, mas ficarão sem vendedor associado.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
