@@ -26,6 +26,26 @@ interface MaterialRow {
   criado_em: string;
 }
 
+function sanitizeFileName(name: string): string {
+  const lastDot = name.lastIndexOf(".");
+  const ext = lastDot > 0 ? name.slice(lastDot + 1).toLowerCase() : "";
+  const base = lastDot > 0 ? name.slice(0, lastDot) : name;
+
+  let sanitized = base
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // remove accents
+    .replace(/[^\x20-\x7E]/g, "")   // remove non-ASCII (emojis, etc.)
+    .replace(/\s+/g, "-")           // spaces to hyphens
+    .replace(/[^a-zA-Z0-9._-]/g, "") // keep only safe chars
+    .replace(/-{2,}/g, "-")         // collapse multiple hyphens
+    .replace(/^-+|-+$/g, "");       // trim hyphens
+
+  if (!sanitized) sanitized = "arquivo";
+  return ext ? `${sanitized}.${ext}` : sanitized;
+}
+
+const ALLOWED_EXTENSIONS = ["txt", "pdf", "png", "jpg", "jpeg", "webp"];
+
 export default function AdminCursos() {
   const [cursos, setCursos] = useState<CursoRow[]>([]);
   const [open, setOpen] = useState(false);
@@ -34,6 +54,7 @@ export default function AdminCursos() {
   const [materiaisOpen, setMateriaisOpen] = useState<string | null>(null);
   const [materiais, setMateriais] = useState<MaterialRow[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [dragging, setDragging] = useState(false);
 
   const fetchCursos = async () => {
     const { data } = await supabase.from("cursos").select("*").order("criado_em", { ascending: false });
@@ -110,19 +131,19 @@ export default function AdminCursos() {
     fetchMateriais(cursoId);
   };
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || !materiaisOpen) return;
+  const processFiles = async (files: FileList | File[]) => {
+    if (!materiaisOpen) return;
     setUploading(true);
 
-    for (const file of Array.from(e.target.files)) {
+    for (const file of Array.from(files)) {
       const ext = file.name.split(".").pop()?.toLowerCase();
-      const allowed = ["txt", "pdf", "png", "jpg", "jpeg", "webp"];
-      if (!allowed.includes(ext ?? "")) {
+      if (!ALLOWED_EXTENSIONS.includes(ext ?? "")) {
         toast.error(`Tipo não permitido: ${ext}`);
         continue;
       }
 
-      const filePath = `${materiaisOpen}/${Date.now()}_${file.name}`;
+      const safeName = sanitizeFileName(file.name);
+      const filePath = `${materiaisOpen}/${Date.now()}_${safeName}`;
       const { error: uploadError } = await supabase.storage.from("curso-materiais").upload(filePath, file);
       if (uploadError) { toast.error(`Erro ao enviar ${file.name}: ${uploadError.message}`); continue; }
 
@@ -141,11 +162,23 @@ export default function AdminCursos() {
     setUploading(false);
     toast.success("Arquivo(s) enviado(s)!");
     fetchMateriais(materiaisOpen);
+  };
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files) return;
+    await processFiles(e.target.files);
     e.target.value = "";
   };
 
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragging(false);
+    if (e.dataTransfer.files.length > 0) {
+      await processFiles(e.dataTransfer.files);
+    }
+  };
+
   const deleteMaterial = async (mat: MaterialRow) => {
-    // Extract path from URL
     const urlParts = mat.url.split("/curso-materiais/");
     if (urlParts[1]) {
       await supabase.storage.from("curso-materiais").remove([decodeURIComponent(urlParts[1])]);
@@ -252,18 +285,34 @@ export default function AdminCursos() {
             <DialogTitle>Materiais — {materiaisCursoNome}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div>
-              <Label>Enviar arquivos (PDF, TXT, PNG, JPG, WEBP)</Label>
-              <Input
+            {/* Drag-and-drop area */}
+            <div
+              onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={handleDrop}
+              className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer ${
+                dragging
+                  ? "border-primary bg-primary/5"
+                  : "border-border hover:border-muted-foreground"
+              }`}
+              onClick={() => document.getElementById("file-input-materiais")?.click()}
+            >
+              <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">
+                Arraste arquivos aqui ou <span className="text-primary font-medium">clique para selecionar</span>
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">PDF, TXT, PNG, JPG, WEBP</p>
+              <input
+                id="file-input-materiais"
                 type="file"
                 multiple
                 accept=".txt,.pdf,.png,.jpg,.jpeg,.webp"
                 onChange={handleUpload}
                 disabled={uploading}
-                className="mt-2"
+                className="hidden"
               />
-              {uploading && <p className="text-xs text-muted-foreground mt-1">Enviando...</p>}
             </div>
+            {uploading && <p className="text-xs text-muted-foreground">Enviando...</p>}
 
             {materiais.length > 0 && (
               <div className="space-y-2 max-h-60 overflow-y-auto">
