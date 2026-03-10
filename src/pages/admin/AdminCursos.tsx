@@ -149,7 +149,7 @@ export default function AdminCursos() {
 
       const { data: urlData } = supabase.storage.from("curso-materiais").getPublicUrl(filePath);
 
-      const tipo = ["png", "jpg", "jpeg", "webp"].includes(ext ?? "") ? "image" : ext === "pdf" ? "pdf" : "text";
+      const tipo = ["png", "jpg", "jpeg", "webp"].includes(ext ?? "") ? "image" : ["pdf", "docx", "doc"].includes(ext ?? "") ? "pdf" : "text";
 
       await supabase.from("curso_materiais").insert({
         curso_id: materiaisOpen,
