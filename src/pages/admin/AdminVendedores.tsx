@@ -113,6 +113,7 @@ export default function AdminVendedores() {
       cpf: form.cpf,
       chave_pix: form.chave_pix,
       cnpj: form.cnpj || null,
+      codigo_ref: form.codigo_ref,
     }).eq("id", editingId);
 
     toast.success("Vendedor atualizado!");
