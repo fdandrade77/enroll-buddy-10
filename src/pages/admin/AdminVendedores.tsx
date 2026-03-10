@@ -150,7 +150,7 @@ export default function AdminVendedores() {
 
   const openCreate = () => {
     setEditingId(null);
-    setForm({ nome: "", email: "", whatsapp: "", cpf: "", chave_pix: "", cnpj: "", senha: "" });
+    setForm({ nome: "", email: "", whatsapp: "", cpf: "", chave_pix: "", cnpj: "", senha: "", codigo_ref: "" });
     setCreatedPassword(null);
     setCreatedLink(null);
     setOpen(true);
