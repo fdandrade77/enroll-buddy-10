@@ -263,6 +263,12 @@ export default function AdminVendedores() {
                   <Label>CNPJ (opcional)</Label>
                   <Input value={form.cnpj} onChange={(e) => setForm({ ...form, cnpj: e.target.value })} />
                 </div>
+                {editingId && (
+                  <div className="space-y-2">
+                    <Label>Código (slug)</Label>
+                    <Input value={form.codigo_ref} onChange={(e) => setForm({ ...form, codigo_ref: e.target.value })} />
+                  </div>
+                )}
                 <Button className="w-full" onClick={editingId ? handleEdit : handleCreate}>
                   {editingId ? "Salvar" : "Criar Vendedor"}
                 </Button>
