@@ -216,7 +216,7 @@ export default function AdminCursos() {
                 <Input type="number" min="1" max="12" value={form.max_parcelas} onChange={(e) => setForm({ ...form, max_parcelas: e.target.value })} />
               </div>
               <div className="space-y-2">
-                <Label>Comissão 1ª Parcela (R$)</Label>
+                <Label>Comissão (R$)</Label>
                 <Input type="number" step="0.01" min="0" value={form.comissao_primeira_parcela} onChange={(e) => setForm({ ...form, comissao_primeira_parcela: e.target.value })} />
               </div>
               <Button className="w-full" onClick={handleSave}>{editingId ? "Salvar" : "Criar Curso"}</Button>
