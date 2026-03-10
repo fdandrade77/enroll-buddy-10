@@ -25,7 +25,7 @@ export default function AdminVendedores() {
   const [vendedores, setVendedores] = useState<VendedorRow[]>([]);
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ nome: "", email: "", whatsapp: "", cpf: "", chave_pix: "", cnpj: "", senha: "" });
+  const [form, setForm] = useState({ nome: "", email: "", whatsapp: "", cpf: "", chave_pix: "", cnpj: "", senha: "", codigo_ref: "" });
   const [createdPassword, setCreatedPassword] = useState<string | null>(null);
   const [createdLink, setCreatedLink] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<VendedorRow | null>(null);
