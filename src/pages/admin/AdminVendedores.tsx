@@ -166,6 +166,7 @@ export default function AdminVendedores() {
       chave_pix: v.chave_pix,
       cnpj: v.cnpj ?? "",
       senha: "",
+      codigo_ref: v.codigo_ref,
     });
     setCreatedPassword(null);
     setCreatedLink(null);
