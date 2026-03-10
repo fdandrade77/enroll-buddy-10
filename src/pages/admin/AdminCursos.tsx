@@ -44,7 +44,7 @@ function sanitizeFileName(name: string): string {
   return ext ? `${sanitized}.${ext}` : sanitized;
 }
 
-const ALLOWED_EXTENSIONS = ["txt", "pdf", "png", "jpg", "jpeg", "webp"];
+const ALLOWED_EXTENSIONS = ["txt", "pdf", "docx", "doc", "png", "jpg", "jpeg", "webp"];
 
 export default function AdminCursos() {
   const [cursos, setCursos] = useState<CursoRow[]>([]);
@@ -149,7 +149,7 @@ export default function AdminCursos() {
 
       const { data: urlData } = supabase.storage.from("curso-materiais").getPublicUrl(filePath);
 
-      const tipo = ["png", "jpg", "jpeg", "webp"].includes(ext ?? "") ? "image" : ext === "pdf" ? "pdf" : "text";
+      const tipo = ["png", "jpg", "jpeg", "webp"].includes(ext ?? "") ? "image" : ["pdf", "docx", "doc"].includes(ext ?? "") ? "pdf" : "text";
 
       await supabase.from("curso_materiais").insert({
         curso_id: materiaisOpen,
@@ -216,7 +216,7 @@ export default function AdminCursos() {
                 <Input type="number" min="1" max="12" value={form.max_parcelas} onChange={(e) => setForm({ ...form, max_parcelas: e.target.value })} />
               </div>
               <div className="space-y-2">
-                <Label>Comissão 1ª Parcela (R$)</Label>
+                <Label>Comissão (R$)</Label>
                 <Input type="number" step="0.01" min="0" value={form.comissao_primeira_parcela} onChange={(e) => setForm({ ...form, comissao_primeira_parcela: e.target.value })} />
               </div>
               <Button className="w-full" onClick={handleSave}>{editingId ? "Salvar" : "Criar Curso"}</Button>
@@ -233,7 +233,7 @@ export default function AdminCursos() {
                 <th className="text-left p-3 text-muted-foreground font-medium">Nome</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">Valor Total</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">Máx. Parcelas</th>
-                <th className="text-left p-3 text-muted-foreground font-medium">Comissão 1ª Parcela</th>
+                <th className="text-left p-3 text-muted-foreground font-medium">Comissão</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">Ativo</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">Ações</th>
               </tr>
@@ -301,12 +301,12 @@ export default function AdminCursos() {
               <p className="text-sm text-muted-foreground">
                 Arraste arquivos aqui ou <span className="text-primary font-medium">clique para selecionar</span>
               </p>
-              <p className="text-xs text-muted-foreground mt-1">PDF, TXT, PNG, JPG, WEBP</p>
+              <p className="text-xs text-muted-foreground mt-1">PDF, DOCX, TXT, PNG, JPG, WEBP</p>
               <input
                 id="file-input-materiais"
                 type="file"
                 multiple
-                accept=".txt,.pdf,.png,.jpg,.jpeg,.webp"
+                accept=".txt,.pdf,.docx,.doc,.png,.jpg,.jpeg,.webp"
                 onChange={handleUpload}
                 disabled={uploading}
                 className="hidden"
