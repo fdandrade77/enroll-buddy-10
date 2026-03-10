@@ -301,12 +301,12 @@ export default function AdminCursos() {
               <p className="text-sm text-muted-foreground">
                 Arraste arquivos aqui ou <span className="text-primary font-medium">clique para selecionar</span>
               </p>
-              <p className="text-xs text-muted-foreground mt-1">PDF, TXT, PNG, JPG, WEBP</p>
+              <p className="text-xs text-muted-foreground mt-1">PDF, DOCX, TXT, PNG, JPG, WEBP</p>
               <input
                 id="file-input-materiais"
                 type="file"
                 multiple
-                accept=".txt,.pdf,.png,.jpg,.jpeg,.webp"
+                accept=".txt,.pdf,.docx,.doc,.png,.jpg,.jpeg,.webp"
                 onChange={handleUpload}
                 disabled={uploading}
                 className="hidden"
