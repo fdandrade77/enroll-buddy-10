@@ -44,7 +44,7 @@ function sanitizeFileName(name: string): string {
   return ext ? `${sanitized}.${ext}` : sanitized;
 }
 
-const ALLOWED_EXTENSIONS = ["txt", "pdf", "png", "jpg", "jpeg", "webp"];
+const ALLOWED_EXTENSIONS = ["txt", "pdf", "docx", "doc", "png", "jpg", "jpeg", "webp"];
 
 export default function AdminCursos() {
   const [cursos, setCursos] = useState<CursoRow[]>([]);
