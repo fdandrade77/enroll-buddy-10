@@ -25,7 +25,7 @@ export default function AdminVendedores() {
   const [vendedores, setVendedores] = useState<VendedorRow[]>([]);
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ nome: "", email: "", whatsapp: "", cpf: "", chave_pix: "", cnpj: "", senha: "" });
+  const [form, setForm] = useState({ nome: "", email: "", whatsapp: "", cpf: "", chave_pix: "", cnpj: "", senha: "", codigo_ref: "" });
   const [createdPassword, setCreatedPassword] = useState<string | null>(null);
   const [createdLink, setCreatedLink] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<VendedorRow | null>(null);
@@ -113,6 +113,7 @@ export default function AdminVendedores() {
       cpf: form.cpf,
       chave_pix: form.chave_pix,
       cnpj: form.cnpj || null,
+      codigo_ref: form.codigo_ref,
     }).eq("id", editingId);
 
     toast.success("Vendedor atualizado!");
@@ -149,7 +150,7 @@ export default function AdminVendedores() {
 
   const openCreate = () => {
     setEditingId(null);
-    setForm({ nome: "", email: "", whatsapp: "", cpf: "", chave_pix: "", cnpj: "", senha: "" });
+    setForm({ nome: "", email: "", whatsapp: "", cpf: "", chave_pix: "", cnpj: "", senha: "", codigo_ref: "" });
     setCreatedPassword(null);
     setCreatedLink(null);
     setOpen(true);
@@ -165,6 +166,7 @@ export default function AdminVendedores() {
       chave_pix: v.chave_pix,
       cnpj: v.cnpj ?? "",
       senha: "",
+      codigo_ref: v.codigo_ref,
     });
     setCreatedPassword(null);
     setCreatedLink(null);
@@ -261,6 +263,12 @@ export default function AdminVendedores() {
                   <Label>CNPJ (opcional)</Label>
                   <Input value={form.cnpj} onChange={(e) => setForm({ ...form, cnpj: e.target.value })} />
                 </div>
+                {editingId && (
+                  <div className="space-y-2">
+                    <Label>Código (slug)</Label>
+                    <Input value={form.codigo_ref} onChange={(e) => setForm({ ...form, codigo_ref: e.target.value })} />
+                  </div>
+                )}
                 <Button className="w-full" onClick={editingId ? handleEdit : handleCreate}>
                   {editingId ? "Salvar" : "Criar Vendedor"}
                 </Button>
