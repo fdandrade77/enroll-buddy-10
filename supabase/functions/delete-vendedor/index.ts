@@ -39,6 +39,18 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "user_id is required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // Delete vendedores row first (references profiles)
+    const { error: vendError } = await adminClient.from("vendedores").delete().eq("user_id", targetUserId);
+    if (vendError) {
+      return new Response(JSON.stringify({ error: vendError.message }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // Delete user_roles
+    await adminClient.from("user_roles").delete().eq("user_id", targetUserId);
+
+    // Delete profiles
+    await adminClient.from("profiles").delete().eq("user_id", targetUserId);
+
     // Delete from auth
     const { error: deleteError } = await adminClient.auth.admin.deleteUser(targetUserId);
     if (deleteError) {
