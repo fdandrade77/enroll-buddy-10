@@ -42,9 +42,9 @@ export default function AdminVendedores() {
   useEffect(() => { fetchVendedores(); }, []);
 
   const generateCodigoRef = async (nome: string): Promise<string> => {
-    const base = nome.toLowerCase()
+    const firstName = nome.trim().split(/\s+/)[0];
+    const base = firstName.toLowerCase()
       .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-      .replace(/\s+/g, "")
       .replace(/[^a-z0-9]/g, "");
 
     const { data: existing } = await supabase

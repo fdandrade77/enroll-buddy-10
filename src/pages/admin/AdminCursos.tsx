@@ -233,7 +233,7 @@ export default function AdminCursos() {
                 <th className="text-left p-3 text-muted-foreground font-medium">Nome</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">Valor Total</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">Máx. Parcelas</th>
-                <th className="text-left p-3 text-muted-foreground font-medium">Comissão 1ª Parcela</th>
+                <th className="text-left p-3 text-muted-foreground font-medium">Comissão</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">Ativo</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">Ações</th>
               </tr>
