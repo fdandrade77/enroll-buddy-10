@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -12,8 +12,13 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { signIn } = useAuth();
+  const { signIn, role, user } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (user && role === "admin") navigate("/admin/dashboard", { replace: true });
+    if (user && role === "vendedor") navigate("/vendedor/dashboard", { replace: true });
+  }, [user, role, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,13 +31,6 @@ export default function Login() {
       setLoading(false);
     }
   };
-
-  const { role, user } = useAuth();
-
-  if (user && role) {
-    if (role === "admin") navigate("/admin/dashboard", { replace: true });
-    if (role === "vendedor") navigate("/vendedor/dashboard", { replace: true });
-  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">
