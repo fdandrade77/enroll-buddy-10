@@ -46,7 +46,7 @@ serve(async (req) => {
     let userId: string;
 
     if (existingUser) {
-      await adminClient.auth.admin.updateUser(existingUser.id, {
+      await adminClient.auth.admin.updateUserById(existingUser.id, {
         password,
         user_metadata: { nome },
       });
