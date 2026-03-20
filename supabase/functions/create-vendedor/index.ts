@@ -49,7 +49,7 @@ serve(async (req) => {
 
     if (existingUser) {
       // Reuse existing auth user — update password and metadata
-      await adminClient.auth.admin.updateUser(existingUser.id, {
+      await adminClient.auth.admin.updateUserById(existingUser.id, {
         password,
         user_metadata: { nome },
       });
