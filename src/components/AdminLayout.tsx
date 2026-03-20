@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { LayoutDashboard, Users, BookOpen, GraduationCap, LogOut, Settings, Menu, X } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -17,6 +18,40 @@ export function AdminLayout() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Web Push notifications for new matriculas (admin only)
+  useEffect(() => {
+    if (!user) return;
+
+    // Request notification permission
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+
+    const channel = supabase
+      .channel("matriculas-insert")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "matriculas",
+        },
+        (payload) => {
+          if ("Notification" in window && Notification.permission === "granted") {
+            new Notification("Nova matrícula!", {
+              body: `${(payload.new as any).nome_completo} acabou de se matricular.`,
+              icon: "/favicon.ico",
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
 
   const handleSignOut = async () => {
     await signOut();
