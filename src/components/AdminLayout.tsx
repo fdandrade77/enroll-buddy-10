@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { LayoutDashboard, Users, BookOpen, GraduationCap, LogOut, Settings, Menu, X } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 
