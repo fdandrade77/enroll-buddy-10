@@ -35,7 +35,7 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    const { nome, email, password, whatsapp, cpf, chave_pix, cnpj, codigo_ref } = body;
+    const { nome, email, password, whatsapp, cpf, chave_pix, cnpj, codigo_ref, modelo_comissao, comissao_percentual } = body;
 
     if (!nome || !email || !password || !whatsapp || !cpf || !chave_pix || !codigo_ref) {
       return new Response(JSON.stringify({ error: "Missing fields" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -87,6 +87,8 @@ serve(async (req) => {
       chave_pix,
       cnpj: cnpj || null,
       senha_gerada: password,
+      modelo_comissao: modelo_comissao ?? 'fixo',
+      comissao_percentual: comissao_percentual ?? 15,
     });
 
     if (vendError) {
