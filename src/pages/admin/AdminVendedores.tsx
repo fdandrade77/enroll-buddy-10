@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Plus, Copy, Pencil, Trash2, ToggleLeft, ToggleRight, Eye, EyeOff } from "lucide-react";
 
@@ -18,6 +19,8 @@ interface VendedorRow {
   cnpj: string | null;
   senha_gerada: string | null;
   criado_em: string;
+  modelo_comissao: 'fixo' | 'parcelado';
+  comissao_percentual: number;
   profiles: { nome: string; email: string; ativo: boolean } | null;
 }
 
@@ -25,7 +28,11 @@ export default function AdminVendedores() {
   const [vendedores, setVendedores] = useState<VendedorRow[]>([]);
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ nome: "", email: "", whatsapp: "", cpf: "", chave_pix: "", cnpj: "", senha: "", codigo_ref: "" });
+  const [form, setForm] = useState({
+    nome: "", email: "", whatsapp: "", cpf: "", chave_pix: "", cnpj: "", senha: "", codigo_ref: "",
+    modelo_comissao: 'fixo' as 'fixo' | 'parcelado',
+    comissao_percentual: '15',
+  });
   const [createdPassword, setCreatedPassword] = useState<string | null>(null);
   const [createdLink, setCreatedLink] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<VendedorRow | null>(null);
@@ -60,11 +67,6 @@ export default function AdminVendedores() {
     return `${base}${i}`;
   };
 
-  const generatePassword = () => {
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%";
-    return Array.from({ length: 12 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
-  };
-
   const handleCreate = async () => {
     if (!form.nome || !form.email || !form.senha || !form.whatsapp || !form.cpf || !form.chave_pix) {
       toast.error("Preencha todos os campos obrigatórios");
@@ -84,6 +86,8 @@ export default function AdminVendedores() {
         chave_pix: form.chave_pix,
         cnpj: form.cnpj,
         codigo_ref: codigoRef,
+        modelo_comissao: form.modelo_comissao,
+        comissao_percentual: parseFloat(form.comissao_percentual),
       },
     });
 
@@ -114,7 +118,9 @@ export default function AdminVendedores() {
       chave_pix: form.chave_pix,
       cnpj: form.cnpj || null,
       codigo_ref: form.codigo_ref,
-    }).eq("id", editingId);
+      modelo_comissao: form.modelo_comissao,
+      comissao_percentual: parseFloat(form.comissao_percentual) || 15,
+    } as any).eq("id", editingId);
 
     toast.success("Vendedor atualizado!");
     setOpen(false);
@@ -131,7 +137,6 @@ export default function AdminVendedores() {
 
   const confirmDelete = async () => {
     if (!deleteTarget) return;
-    // Delete from auth first via edge function
     const { error: authDeleteError } = await supabase.functions.invoke("delete-vendedor", {
       body: { user_id: deleteTarget.user_id },
     });
@@ -139,7 +144,6 @@ export default function AdminVendedores() {
       toast.error("Erro ao excluir vendedor do sistema de autenticação");
       return;
     }
-    // Then clean up database tables
     await supabase.from("vendedores").delete().eq("id", deleteTarget.id);
     await supabase.from("profiles").delete().eq("user_id", deleteTarget.user_id);
     await supabase.from("user_roles").delete().eq("user_id", deleteTarget.user_id);
@@ -150,7 +154,7 @@ export default function AdminVendedores() {
 
   const openCreate = () => {
     setEditingId(null);
-    setForm({ nome: "", email: "", whatsapp: "", cpf: "", chave_pix: "", cnpj: "", senha: "", codigo_ref: "" });
+    setForm({ nome: "", email: "", whatsapp: "", cpf: "", chave_pix: "", cnpj: "", senha: "", codigo_ref: "", modelo_comissao: 'fixo', comissao_percentual: '15' });
     setCreatedPassword(null);
     setCreatedLink(null);
     setOpen(true);
@@ -167,6 +171,8 @@ export default function AdminVendedores() {
       cnpj: v.cnpj ?? "",
       senha: "",
       codigo_ref: v.codigo_ref,
+      modelo_comissao: v.modelo_comissao ?? 'fixo',
+      comissao_percentual: (v.comissao_percentual ?? 15).toString(),
     });
     setCreatedPassword(null);
     setCreatedLink(null);
@@ -194,7 +200,7 @@ export default function AdminVendedores() {
           <DialogTrigger asChild>
             <Button onClick={openCreate}><Plus className="h-4 w-4 mr-2" /> Adicionar</Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingId ? "Editar Vendedor" : "Novo Vendedor"}</DialogTitle>
             </DialogHeader>
@@ -269,6 +275,28 @@ export default function AdminVendedores() {
                     <Input value={form.codigo_ref} onChange={(e) => setForm({ ...form, codigo_ref: e.target.value })} />
                   </div>
                 )}
+
+                {/* Modelo de Comissão */}
+                <div className="space-y-2">
+                  <Label>Modelo de Comissão</Label>
+                  <Select value={form.modelo_comissao} onValueChange={(v) => setForm({ ...form, modelo_comissao: v as 'fixo' | 'parcelado' })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="fixo">Valor Fixo por Venda (R$)</SelectItem>
+                      <SelectItem value="parcelado">Percentual por Parcela (%)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {form.modelo_comissao === 'parcelado' && (
+                  <div className="space-y-2">
+                    <Label>Percentual por Parcela (%)</Label>
+                    <Input type="number" step="0.1" min="0.1" max="100"
+                      value={form.comissao_percentual}
+                      onChange={(e) => setForm({ ...form, comissao_percentual: e.target.value })} />
+                  </div>
+                )}
+
                 <Button className="w-full" onClick={editingId ? handleEdit : handleCreate}>
                   {editingId ? "Salvar" : "Criar Vendedor"}
                 </Button>
@@ -288,6 +316,7 @@ export default function AdminVendedores() {
                 <th className="text-left p-3 text-muted-foreground font-medium">Senha</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">WhatsApp</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">CPF</th>
+                <th className="text-left p-3 text-muted-foreground font-medium">Modelo</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">Código</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">Ativo</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">Ações</th>
@@ -317,6 +346,17 @@ export default function AdminVendedores() {
                   </td>
                   <td className="p-3 text-foreground">{v.whatsapp}</td>
                   <td className="p-3 text-foreground">{v.cpf}</td>
+                  <td className="p-3">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                      v.modelo_comissao === 'parcelado'
+                        ? "bg-blue-500/10 text-blue-600"
+                        : "bg-amber-500/10 text-amber-600"
+                    }`}>
+                      {v.modelo_comissao === 'parcelado'
+                        ? `${v.comissao_percentual}% parcelado`
+                        : 'Fixo'}
+                    </span>
+                  </td>
                   <td className="p-3">
                     <div className="flex items-center gap-1">
                       <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{v.codigo_ref}</code>
@@ -348,7 +388,7 @@ export default function AdminVendedores() {
                 </tr>
               ))}
               {vendedores.length === 0 && (
-                <tr><td colSpan={8} className="p-8 text-center text-muted-foreground">Nenhum vendedor cadastrado</td></tr>
+                <tr><td colSpan={9} className="p-8 text-center text-muted-foreground">Nenhum vendedor cadastrado</td></tr>
               )}
             </tbody>
           </table>
