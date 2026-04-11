@@ -14,6 +14,63 @@ export type Database = {
   }
   public: {
     Tables: {
+      comissoes_parcelas: {
+        Row: {
+          criado_em: string
+          data_pagamento: string | null
+          data_prevista: string | null
+          id: string
+          matricula_id: string
+          numero_parcela: number
+          percentual: number
+          status: string
+          valor_comissao: number
+          valor_parcela_curso: number
+          vendedor_id: string
+        }
+        Insert: {
+          criado_em?: string
+          data_pagamento?: string | null
+          data_prevista?: string | null
+          id?: string
+          matricula_id: string
+          numero_parcela: number
+          percentual: number
+          status?: string
+          valor_comissao: number
+          valor_parcela_curso: number
+          vendedor_id: string
+        }
+        Update: {
+          criado_em?: string
+          data_pagamento?: string | null
+          data_prevista?: string | null
+          id?: string
+          matricula_id?: string
+          numero_parcela?: number
+          percentual?: number
+          status?: string
+          valor_comissao?: number
+          valor_parcela_curso?: number
+          vendedor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comissoes_parcelas_matricula_id_fkey"
+            columns: ["matricula_id"]
+            isOneToOne: false
+            referencedRelation: "matriculas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comissoes_parcelas_vendedor_id_fkey"
+            columns: ["vendedor_id"]
+            isOneToOne: false
+            referencedRelation: "vendedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       curso_materiais: {
         Row: {
           criado_em: string
@@ -78,6 +135,41 @@ export type Database = {
           valor_total?: number
         }
         Relationships: []
+      }
+      despesas_matricula: {
+        Row: {
+          criado_em: string
+          descricao: string | null
+          id: string
+          matricula_id: string
+          tipo: string
+          valor: number
+        }
+        Insert: {
+          criado_em?: string
+          descricao?: string | null
+          id?: string
+          matricula_id: string
+          tipo: string
+          valor: number
+        }
+        Update: {
+          criado_em?: string
+          descricao?: string | null
+          id?: string
+          matricula_id?: string
+          tipo?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "despesas_matricula_matricula_id_fkey"
+            columns: ["matricula_id"]
+            isOneToOne: false
+            referencedRelation: "matriculas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       matriculas: {
         Row: {
@@ -192,9 +284,11 @@ export type Database = {
           chave_pix: string
           cnpj: string | null
           codigo_ref: string
+          comissao_percentual: number
           cpf: string
           criado_em: string
           id: string
+          modelo_comissao: Database["public"]["Enums"]["modelo_comissao"]
           senha_gerada: string | null
           user_id: string
           whatsapp: string
@@ -203,9 +297,11 @@ export type Database = {
           chave_pix: string
           cnpj?: string | null
           codigo_ref: string
+          comissao_percentual?: number
           cpf: string
           criado_em?: string
           id?: string
+          modelo_comissao?: Database["public"]["Enums"]["modelo_comissao"]
           senha_gerada?: string | null
           user_id: string
           whatsapp: string
@@ -214,9 +310,11 @@ export type Database = {
           chave_pix?: string
           cnpj?: string | null
           codigo_ref?: string
+          comissao_percentual?: number
           cpf?: string
           criado_em?: string
           id?: string
+          modelo_comissao?: Database["public"]["Enums"]["modelo_comissao"]
           senha_gerada?: string | null
           user_id?: string
           whatsapp?: string
@@ -246,6 +344,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "vendedor"
+      modelo_comissao: "fixo" | "parcelado"
       status_matricula: "nao_pago" | "pago"
       tipo_pagamento: "a_vista" | "parcelado"
     }
@@ -376,6 +475,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "vendedor"],
+      modelo_comissao: ["fixo", "parcelado"],
       status_matricula: ["nao_pago", "pago"],
       tipo_pagamento: ["a_vista", "parcelado"],
     },
