@@ -118,6 +118,10 @@ export default function PublicIndicacao() {
     );
   }
 
+  const today = new Date();
+  const maxDate = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const todayStr = today.toISOString().split('T')[0];
+
   const inputClass = "w-full rounded-xl border-0 bg-white px-4 py-3 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gold/50 transition text-sm";
   const selectClass = "w-full rounded-xl border-0 bg-white px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-gold/50 transition text-sm";
   const labelClass = "block text-sm font-medium text-public-foreground mb-1.5";
@@ -185,7 +189,7 @@ export default function PublicIndicacao() {
             </div>
             <div>
               <label className={labelClass}>Data de vencimento:</label>
-              <input type="date" className={inputClass} value={form.data_vencimento} onChange={(e) => setForm({ ...form, data_vencimento: e.target.value })} required />
+              <input type="date" className={inputClass} value={form.data_vencimento} min={todayStr} max={maxDate} onChange={(e) => setForm({ ...form, data_vencimento: e.target.value })} required />
             </div>
           </div>
 
