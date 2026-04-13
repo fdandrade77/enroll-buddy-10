@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      cashbacks: {
+        Row: {
+          criado_em: string
+          data_pagamento: string | null
+          id: string
+          indicador_id: string
+          matricula_id: string
+          status: string
+          valor: number
+        }
+        Insert: {
+          criado_em?: string
+          data_pagamento?: string | null
+          id?: string
+          indicador_id: string
+          matricula_id: string
+          status?: string
+          valor: number
+        }
+        Update: {
+          criado_em?: string
+          data_pagamento?: string | null
+          id?: string
+          indicador_id?: string
+          matricula_id?: string
+          status?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cashbacks_indicador_id_fkey"
+            columns: ["indicador_id"]
+            isOneToOne: false
+            referencedRelation: "indicadores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cashbacks_matricula_id_fkey"
+            columns: ["matricula_id"]
+            isOneToOne: true
+            referencedRelation: "matriculas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       comissoes_parcelas: {
         Row: {
           criado_em: string
@@ -70,6 +115,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      configuracoes: {
+        Row: {
+          chave: string
+          criado_em: string
+          valor: string
+        }
+        Insert: {
+          chave: string
+          criado_em?: string
+          valor: string
+        }
+        Update: {
+          chave?: string
+          criado_em?: string
+          valor?: string
+        }
+        Relationships: []
       }
       curso_materiais: {
         Row: {
@@ -171,6 +234,33 @@ export type Database = {
           },
         ]
       }
+      indicadores: {
+        Row: {
+          ativo: boolean
+          chave_pix: string
+          criado_em: string
+          id: string
+          nome: string
+          slug: string
+        }
+        Insert: {
+          ativo?: boolean
+          chave_pix: string
+          criado_em?: string
+          id?: string
+          nome: string
+          slug: string
+        }
+        Update: {
+          ativo?: boolean
+          chave_pix?: string
+          criado_em?: string
+          id?: string
+          nome?: string
+          slug?: string
+        }
+        Relationships: []
+      }
       matriculas: {
         Row: {
           cpf: string
@@ -179,6 +269,7 @@ export type Database = {
           data_vencimento: string
           email: string
           id: string
+          indicador_id: string | null
           nome_completo: string
           quantidade_parcelas: number | null
           status: Database["public"]["Enums"]["status_matricula"]
@@ -194,6 +285,7 @@ export type Database = {
           data_vencimento: string
           email: string
           id?: string
+          indicador_id?: string | null
           nome_completo: string
           quantidade_parcelas?: number | null
           status?: Database["public"]["Enums"]["status_matricula"]
@@ -209,6 +301,7 @@ export type Database = {
           data_vencimento?: string
           email?: string
           id?: string
+          indicador_id?: string | null
           nome_completo?: string
           quantidade_parcelas?: number | null
           status?: Database["public"]["Enums"]["status_matricula"]
@@ -223,6 +316,13 @@ export type Database = {
             columns: ["curso_id"]
             isOneToOne: false
             referencedRelation: "cursos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "matriculas_indicador_id_fkey"
+            columns: ["indicador_id"]
+            isOneToOne: false
+            referencedRelation: "indicadores"
             referencedColumns: ["id"]
           },
           {
@@ -287,6 +387,8 @@ export type Database = {
           comissao_percentual: number
           cpf: string
           criado_em: string
+          despesa_fateb_padrao: number
+          despesa_trafego_padrao: number
           id: string
           modelo_comissao: Database["public"]["Enums"]["modelo_comissao"]
           senha_gerada: string | null
@@ -300,6 +402,8 @@ export type Database = {
           comissao_percentual?: number
           cpf: string
           criado_em?: string
+          despesa_fateb_padrao?: number
+          despesa_trafego_padrao?: number
           id?: string
           modelo_comissao?: Database["public"]["Enums"]["modelo_comissao"]
           senha_gerada?: string | null
@@ -313,6 +417,8 @@ export type Database = {
           comissao_percentual?: number
           cpf?: string
           criado_em?: string
+          despesa_fateb_padrao?: number
+          despesa_trafego_padrao?: number
           id?: string
           modelo_comissao?: Database["public"]["Enums"]["modelo_comissao"]
           senha_gerada?: string | null
