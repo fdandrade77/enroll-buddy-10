@@ -21,6 +21,8 @@ interface VendedorRow {
   criado_em: string;
   modelo_comissao: 'fixo' | 'parcelado';
   comissao_percentual: number;
+  despesa_trafego_padrao: number;
+  despesa_fateb_padrao: number;
   profiles: { nome: string; email: string; ativo: boolean } | null;
 }
 
@@ -32,6 +34,8 @@ export default function AdminVendedores() {
     nome: "", email: "", whatsapp: "", cpf: "", chave_pix: "", cnpj: "", senha: "", codigo_ref: "",
     modelo_comissao: 'fixo' as 'fixo' | 'parcelado',
     comissao_percentual: '15',
+    despesa_trafego_padrao: '0',
+    despesa_fateb_padrao: '0',
   });
   const [createdPassword, setCreatedPassword] = useState<string | null>(null);
   const [createdLink, setCreatedLink] = useState<string | null>(null);
@@ -88,6 +92,8 @@ export default function AdminVendedores() {
         codigo_ref: codigoRef,
         modelo_comissao: form.modelo_comissao,
         comissao_percentual: parseFloat(form.comissao_percentual),
+        despesa_trafego_padrao: parseFloat(form.despesa_trafego_padrao) || 0,
+        despesa_fateb_padrao: parseFloat(form.despesa_fateb_padrao) || 0,
       },
     });
 
@@ -120,6 +126,8 @@ export default function AdminVendedores() {
       codigo_ref: form.codigo_ref,
       modelo_comissao: form.modelo_comissao,
       comissao_percentual: parseFloat(form.comissao_percentual) || 15,
+      despesa_trafego_padrao: parseFloat(form.despesa_trafego_padrao) || 0,
+      despesa_fateb_padrao: parseFloat(form.despesa_fateb_padrao) || 0,
     } as any).eq("id", editingId);
 
     toast.success("Vendedor atualizado!");
@@ -154,7 +162,7 @@ export default function AdminVendedores() {
 
   const openCreate = () => {
     setEditingId(null);
-    setForm({ nome: "", email: "", whatsapp: "", cpf: "", chave_pix: "", cnpj: "", senha: "", codigo_ref: "", modelo_comissao: 'fixo', comissao_percentual: '15' });
+    setForm({ nome: "", email: "", whatsapp: "", cpf: "", chave_pix: "", cnpj: "", senha: "", codigo_ref: "", modelo_comissao: 'fixo', comissao_percentual: '15', despesa_trafego_padrao: '0', despesa_fateb_padrao: '0' });
     setCreatedPassword(null);
     setCreatedLink(null);
     setOpen(true);
@@ -173,6 +181,8 @@ export default function AdminVendedores() {
       codigo_ref: v.codigo_ref,
       modelo_comissao: v.modelo_comissao ?? 'fixo',
       comissao_percentual: (v.comissao_percentual ?? 15).toString(),
+      despesa_trafego_padrao: (v.despesa_trafego_padrao ?? 0).toString(),
+      despesa_fateb_padrao: (v.despesa_fateb_padrao ?? 0).toString(),
     });
     setCreatedPassword(null);
     setCreatedLink(null);
@@ -297,6 +307,30 @@ export default function AdminVendedores() {
                   </div>
                 )}
 
+                {/* Despesas Padrão */}
+                <div className="border-t border-border pt-4 space-y-3">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    Despesas Padrão por Matrícula
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Tráfego Pago (R$)</Label>
+                      <Input type="number" step="0.01" min="0"
+                        value={form.despesa_trafego_padrao}
+                        onChange={(e) => setForm({ ...form, despesa_trafego_padrao: e.target.value })} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Taxa FATEB (R$)</Label>
+                      <Input type="number" step="0.01" min="0"
+                        value={form.despesa_fateb_padrao}
+                        onChange={(e) => setForm({ ...form, despesa_fateb_padrao: e.target.value })} />
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Estes valores serão inseridos automaticamente nas despesas de cada nova matrícula.
+                  </p>
+                </div>
+
                 <Button className="w-full" onClick={editingId ? handleEdit : handleCreate}>
                   {editingId ? "Salvar" : "Criar Vendedor"}
                 </Button>
@@ -396,20 +430,17 @@ export default function AdminVendedores() {
       </div>
 
       {/* Delete confirmation */}
-      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir vendedor?</AlertDialogTitle>
             <AlertDialogDescription>
-              {deleteTarget?.profiles?.nome ? `Deseja realmente excluir o vendedor "${deleteTarget.profiles.nome}"?` : "Deseja realmente excluir este vendedor?"} 
-              {" "}Os alunos cadastrados por este vendedor serão mantidos, mas ficarão sem vendedor associado.
+              Essa ação não pode ser desfeita. O vendedor <strong>{deleteTarget?.profiles?.nome}</strong> será removido permanentemente.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Excluir
-            </AlertDialogAction>
+            <AlertDialogAction onClick={confirmDelete}>Excluir</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

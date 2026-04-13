@@ -13,9 +13,11 @@ import AdminVendedores from "./pages/admin/AdminVendedores";
 import AdminCursos from "./pages/admin/AdminCursos";
 import AdminAlunos from "./pages/admin/AdminAlunos";
 import AdminConfig from "./pages/admin/AdminConfig";
+import AdminIndicacoes from "./pages/admin/AdminIndicacoes";
 import VendedorDashboard from "./pages/vendedor/VendedorDashboard";
 import VendedorCursos from "./pages/vendedor/VendedorCursos";
 import PublicMatricula from "./pages/PublicMatricula";
+import PublicIndicacao from "./pages/PublicIndicacao";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -31,12 +33,14 @@ const App = () => (
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="/login" element={<Login />} />
             <Route path="/r/:codigo" element={<PublicMatricula />} />
+            <Route path="/i/:slug" element={<PublicIndicacao />} />
 
             <Route path="/admin" element={<ProtectedRoute requiredRole="admin"><AdminLayout /></ProtectedRoute>}>
               <Route path="dashboard" element={<AdminDashboard />} />
               <Route path="vendedores" element={<AdminVendedores />} />
               <Route path="cursos" element={<AdminCursos />} />
               <Route path="alunos" element={<AdminAlunos />} />
+              <Route path="indicacoes" element={<AdminIndicacoes />} />
               <Route path="configuracoes" element={<AdminConfig />} />
             </Route>
 
