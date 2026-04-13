@@ -244,14 +244,31 @@ export default function AdminDashboard() {
         .filter(d => d.matricula_id === m.id)
         .reduce((sd, d) => sd + Number(d.valor), 0);
     }, 0);
+
+    // Calcular mensal e acumulado para modelo parcelado
+    const modelo = (v as any).modelo_comissao ?? 'fixo';
+    let comissaoMensal = 0;
+    let comissaoAcumulada = 0;
+    if (modelo === 'parcelado') {
+      const vParcelas = comissoesParcelas.filter(p => ms.some(m => m.id === p.matricula_id));
+      comissaoAcumulada = vParcelas
+        .filter(p => p.status === 'pago')
+        .reduce((s, p) => s + Number(p.valor_comissao), 0);
+      // Mensal = valor de uma parcela de comissão (média)
+      const pendentes = vParcelas.filter(p => p.status === 'pendente');
+      comissaoMensal = pendentes.length > 0 ? Number(pendentes[0].valor_comissao) : 0;
+    }
+
     return {
       nome: v.profiles?.nome ?? v.codigo_ref,
       total,
       comissao,
       count: ms.length,
-      modelo: (v as any).modelo_comissao ?? 'fixo',
+      modelo,
       percentual: (v as any).comissao_percentual ?? 15,
       despesas: totalDesp,
+      comissaoMensal,
+      comissaoAcumulada,
     };
   }).filter((v) => v.count > 0);
 
@@ -441,7 +458,17 @@ export default function AdminDashboard() {
                   </td>
                   <td className="p-3 text-foreground">{v.count}</td>
                   <td className="p-3 text-foreground">R$ {v.total.toFixed(2)}</td>
-                  <td className="p-3 text-foreground font-medium">R$ {v.comissao.toFixed(2)}</td>
+                  <td className="p-3 text-foreground font-medium">
+                    <div className="flex flex-col">
+                      <span>R$ {v.comissao.toFixed(2)}</span>
+                      {v.modelo === 'parcelado' && (
+                        <>
+                          <span className="text-xs text-muted-foreground">Mensal: R$ {v.comissaoMensal.toFixed(2)}</span>
+                          <span className="text-xs text-success">Acumulado: R$ {v.comissaoAcumulada.toFixed(2)}</span>
+                        </>
+                      )}
+                    </div>
+                  </td>
                   <td className="p-3 text-destructive">R$ {v.despesas.toFixed(2)}</td>
                 </tr>
               ))}
