@@ -22,11 +22,13 @@ export default function AdminConfig() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Admin management
   const [admins, setAdmins] = useState<AdminRow[]>([]);
   const [adminDialogOpen, setAdminDialogOpen] = useState(false);
   const [adminForm, setAdminForm] = useState({ nome: "", email: "", password: "" });
   const [adminLoading, setAdminLoading] = useState(false);
+
+  // Cashback config
+  const [valorCashback, setValorCashback] = useState("50.00");
 
   const fetchAdmins = async () => {
     const { data } = await supabase
@@ -44,7 +46,12 @@ export default function AdminConfig() {
     }
   };
 
-  useEffect(() => { fetchAdmins(); }, []);
+  const fetchCashbackConfig = async () => {
+    const { data } = await supabase.from("configuracoes").select("valor").eq("chave", "valor_cashback").single();
+    if (data) setValorCashback(data.valor);
+  };
+
+  useEffect(() => { fetchAdmins(); fetchCashbackConfig(); }, []);
 
   const handleUpdateEmail = async () => {
     if (!newEmail) { toast.error("Informe o novo e-mail"); return; }
@@ -109,6 +116,11 @@ export default function AdminConfig() {
     }
     toast.success("Administrador excluído");
     fetchAdmins();
+  };
+
+  const salvarCashback = async () => {
+    await supabase.from("configuracoes").upsert({ chave: "valor_cashback", valor: valorCashback } as any);
+    toast.success("Valor de cashback atualizado!");
   };
 
   return (
@@ -204,6 +216,23 @@ export default function AdminConfig() {
           {admins.length === 0 && (
             <p className="text-sm text-muted-foreground text-center py-4">Nenhum administrador encontrado</p>
           )}
+        </div>
+      </div>
+
+      {/* Cashback config */}
+      <div className="bg-card border border-border rounded-xl p-6 space-y-4">
+        <h2 className="text-lg font-semibold text-foreground">Cashback de Indicações</h2>
+        <p className="text-sm text-muted-foreground">
+          Valor pago ao aluno indicador quando o indicado efetua pagamento.
+        </p>
+        <div className="flex items-end gap-3">
+          <div className="space-y-2 flex-1">
+            <Label>Valor do Cashback (R$)</Label>
+            <Input type="number" step="0.01" min="0"
+              value={valorCashback}
+              onChange={(e) => setValorCashback(e.target.value)} />
+          </div>
+          <Button onClick={salvarCashback}>Salvar</Button>
         </div>
       </div>
     </div>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { StatCard } from "@/components/StatCard";
-import { FileText, CheckCircle, XCircle, DollarSign, ClipboardList, Receipt, Trash2, ChevronDown, ChevronUp } from "lucide-react";
+import { FileText, CheckCircle, XCircle, DollarSign, TrendingUp, ClipboardList, Receipt, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -38,7 +38,7 @@ export default function AdminDashboard() {
 
   const fetchData = async () => {
     const [mRes, vRes, cRes, cpRes, dRes] = await Promise.all([
-      supabase.from("matriculas").select("*, cursos(nome, comissao_primeira_parcela, valor_total, max_parcelas), vendedores(codigo_ref, user_id, modelo_comissao, comissao_percentual, profiles:user_id(nome))"),
+      supabase.from("matriculas").select("*, cursos(nome, comissao_primeira_parcela, valor_total, max_parcelas), vendedores(codigo_ref, user_id, modelo_comissao, comissao_percentual, despesa_trafego_padrao, despesa_fateb_padrao, profiles:user_id(nome))"),
       supabase.from("vendedores").select("*, profiles:user_id(nome)"),
       supabase.from("cursos").select("*"),
       supabase.from("comissoes_parcelas").select("*"),
@@ -49,7 +49,6 @@ export default function AdminDashboard() {
     setComissoesParcelas(parcelas);
     setDespesas(dRes.data ?? []);
 
-    // Enrich matriculas with comissao parcelada sum
     const enriched = (mRes.data ?? []).map((m: any) => {
       const mParcelas = parcelas.filter((p: any) => p.matricula_id === m.id);
       return {
@@ -78,12 +77,55 @@ export default function AdminDashboard() {
 
   const totalPago = filtered.filter((m) => m.status === "pago").length;
   const totalNaoPago = filtered.filter((m) => m.status === "nao_pago").length;
-  const comissaoTotal = filtered.reduce((sum, m) => sum + calcComissao(m), 0);
+
+  // Comissão fixa: apenas matrículas de vendedores com modelo 'fixo'
+  const comissaoFixaTotal = filtered
+    .filter(m => (m.vendedores?.modelo_comissao ?? 'fixo') === 'fixo')
+    .reduce((sum, m) => sum + (m.cursos?.comissao_primeira_parcela ?? 0), 0);
+
+  // Comissão parcelada pendente: soma das parcelas ainda não pagas
+  const comissaoParceladaPendente = comissoesParcelas
+    .filter(p => p.status === 'pendente')
+    .filter(p => {
+      const mat = filtered.find(m => m.id === p.matricula_id);
+      return mat?.vendedores?.modelo_comissao === 'parcelado';
+    })
+    .reduce((sum, p) => sum + Number(p.valor_comissao), 0);
 
   const toggleStatus = async (id: string, currentStatus: string) => {
     const newStatus = currentStatus === "pago" ? "nao_pago" : "pago";
     const { error } = await supabase.from("matriculas").update({ status: newStatus }).eq("id", id);
     if (error) { toast.error("Erro ao atualizar status"); return; }
+
+    // Gerar cashback se necessário
+    if (newStatus === 'pago') {
+      const matricula = matriculas.find(m => m.id === id);
+      if (matricula?.indicador_id) {
+        const { data: existing } = await supabase
+          .from('cashbacks')
+          .select('id')
+          .eq('matricula_id', id)
+          .maybeSingle();
+
+        if (!existing) {
+          const { data: cfg } = await supabase
+            .from('configuracoes')
+            .select('valor')
+            .eq('chave', 'valor_cashback')
+            .single();
+
+          const valorCashback = parseFloat(cfg?.valor ?? '50');
+          await supabase.from('cashbacks').insert({
+            indicador_id: matricula.indicador_id,
+            matricula_id: id,
+            valor: valorCashback,
+            status: 'pendente',
+          } as any);
+          toast.success('Cashback gerado para o indicador!');
+        }
+      }
+    }
+
     toast.success(`Status alterado para ${newStatus === "pago" ? "Pago" : "Não pago"}`);
     fetchData();
   };
@@ -104,7 +146,6 @@ export default function AdminDashboard() {
     link.click();
   };
 
-  // Generate commission installments on demand
   const generateParcelas = async (m: any) => {
     const qtd = m.quantidade_parcelas ?? m.cursos?.max_parcelas ?? 1;
     const valorParcela = Number(m.valor_total) / qtd;
@@ -149,8 +190,26 @@ export default function AdminDashboard() {
     await fetchData();
   };
 
-  // Despesas
-  const openDespesasModal = (m: any) => {
+  // Despesas — auto-inserir padrão
+  const openDespesasModal = async (m: any) => {
+    const despesasExistentes = despesas.filter(d => d.matricula_id === m.id);
+
+    if (despesasExistentes.length === 0) {
+      const vendedor = vendedores.find(v => v.id === m.vendedor_id);
+      const inserts: any[] = [];
+
+      if (vendedor?.despesa_trafego_padrao > 0) {
+        inserts.push({ matricula_id: m.id, tipo: 'trafego', descricao: 'Tráfego pago (padrão)', valor: vendedor.despesa_trafego_padrao });
+      }
+      if (vendedor?.despesa_fateb_padrao > 0) {
+        inserts.push({ matricula_id: m.id, tipo: 'taxa_fateb', descricao: 'Taxa FATEB (padrão)', valor: vendedor.despesa_fateb_padrao });
+      }
+      if (inserts.length > 0) {
+        await supabase.from('despesas_matricula').insert(inserts as any);
+        await fetchData();
+      }
+    }
+
     setDespesasModal(m);
     setNovaDespesa({ tipo: 'trafego', descricao: '', valor: '' });
   };
@@ -175,11 +234,16 @@ export default function AdminDashboard() {
     await fetchData();
   };
 
-  // Comissão por vendedor
+  // Comissão por vendedor — com despesas
   const comissaoPorVendedor = vendedores.map((v) => {
     const ms = filtered.filter((m) => m.vendedor_id === v.id);
     const total = ms.reduce((s, m) => s + Number(m.valor_total), 0);
     const comissao = ms.reduce((s, m) => s + calcComissao(m), 0);
+    const totalDesp = ms.reduce((s, m) => {
+      return s + despesas
+        .filter(d => d.matricula_id === m.id)
+        .reduce((sd, d) => sd + Number(d.valor), 0);
+    }, 0);
     return {
       nome: v.profiles?.nome ?? v.codigo_ref,
       total,
@@ -187,6 +251,7 @@ export default function AdminDashboard() {
       count: ms.length,
       modelo: (v as any).modelo_comissao ?? 'fixo',
       percentual: (v as any).comissao_percentual ?? 15,
+      despesas: totalDesp,
     };
   }).filter((v) => v.count > 0);
 
@@ -206,11 +271,12 @@ export default function AdminDashboard() {
     <div className="space-y-6 animate-fade-in">
       <h1 className="text-2xl font-bold text-foreground">Dashboard Admin</h1>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <StatCard title="Total Matrículas" value={filtered.length} icon={FileText} />
         <StatCard title="Pagas" value={totalPago} icon={CheckCircle} variant="success" />
         <StatCard title="Não Pagas" value={totalNaoPago} icon={XCircle} variant="destructive" />
-        <StatCard title="Comissão a Pagar" value={`R$ ${comissaoTotal.toFixed(2)}`} icon={DollarSign} variant="warning" />
+        <StatCard title="Comissão Fixa" value={`R$ ${comissaoFixaTotal.toFixed(2)}`} icon={DollarSign} variant="warning" />
+        <StatCard title="Comissão Parcelada Pendente" value={`R$ ${comissaoParceladaPendente.toFixed(2)}`} icon={TrendingUp} variant="default" />
       </div>
 
       {/* Filters */}
@@ -359,6 +425,7 @@ export default function AdminDashboard() {
                 <th className="text-left p-3 text-muted-foreground font-medium">Matrículas</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">Total</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">Comissão</th>
+                <th className="text-left p-3 text-muted-foreground font-medium">Despesas</th>
               </tr>
             </thead>
             <tbody>
@@ -375,6 +442,7 @@ export default function AdminDashboard() {
                   <td className="p-3 text-foreground">{v.count}</td>
                   <td className="p-3 text-foreground">R$ {v.total.toFixed(2)}</td>
                   <td className="p-3 text-foreground font-medium">R$ {v.comissao.toFixed(2)}</td>
+                  <td className="p-3 text-destructive">R$ {v.despesas.toFixed(2)}</td>
                 </tr>
               ))}
             </tbody>

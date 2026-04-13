@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { LayoutDashboard, Users, BookOpen, GraduationCap, LogOut, Settings, Menu, X } from "lucide-react";
+import { LayoutDashboard, Users, BookOpen, GraduationCap, LogOut, Settings, Menu, X, Share2 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 const links = [
@@ -10,6 +10,7 @@ const links = [
   { to: "/admin/vendedores", label: "Vendedores", icon: Users },
   { to: "/admin/cursos", label: "Cursos", icon: BookOpen },
   { to: "/admin/alunos", label: "Alunos", icon: GraduationCap },
+  { to: "/admin/indicacoes", label: "Indicações", icon: Share2 },
   { to: "/admin/configuracoes", label: "Configurações", icon: Settings },
 ];
 
@@ -19,64 +20,34 @@ export function AdminLayout() {
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Web Push notifications for new matriculas (admin only)
   useEffect(() => {
     if (!user) return;
-
-    // Request notification permission
     if ("Notification" in window && Notification.permission === "default") {
       Notification.requestPermission();
     }
-
     const channel = supabase
       .channel("matriculas-insert")
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "matriculas",
-        },
-        (payload) => {
-          if ("Notification" in window && Notification.permission === "granted") {
-            new Notification("Nova matrícula!", {
-              body: `${(payload.new as any).nome_completo} acabou de se matricular.`,
-              icon: "/favicon.ico",
-            });
-          }
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "matriculas" }, (payload) => {
+        if ("Notification" in window && Notification.permission === "granted") {
+          new Notification("Nova matrícula!", {
+            body: `${(payload.new as any).nome_completo} acabou de se matricular.`,
+            icon: "/favicon.ico",
+          });
         }
-      )
+      })
       .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [user]);
 
-  const handleSignOut = async () => {
-    await signOut();
-    navigate("/login");
-  };
-
-  const closeSidebar = () => {
-    if (isMobile) setSidebarOpen(false);
-  };
+  const handleSignOut = async () => { await signOut(); navigate("/login"); };
+  const closeSidebar = () => { if (isMobile) setSidebarOpen(false); };
 
   return (
     <div className="flex min-h-screen">
-      {/* Mobile overlay */}
       {isMobile && sidebarOpen && (
         <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setSidebarOpen(false)} />
       )}
-
-      {/* Sidebar */}
-      <aside
-        className={`${
-          isMobile
-            ? `fixed inset-y-0 left-0 z-50 w-64 transform transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`
-            : "w-64"
-        } bg-sidebar text-sidebar-foreground flex flex-col`}
-      >
+      <aside className={`${isMobile ? `fixed inset-y-0 left-0 z-50 w-64 transform transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}` : "w-64"} bg-sidebar text-sidebar-foreground flex flex-col`}>
         <div className="p-6 border-b border-sidebar-border flex items-center justify-between">
           <div>
             <h1 className="text-lg font-bold text-sidebar-primary-foreground">Painel Admin</h1>
@@ -90,47 +61,28 @@ export function AdminLayout() {
         </div>
         <nav className="flex-1 p-4 space-y-1">
           {links.map((l) => (
-            <NavLink
-              key={l.to}
-              to={l.to}
-              onClick={closeSidebar}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                  isActive
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
-                }`
-              }
-            >
+            <NavLink key={l.to} to={l.to} onClick={closeSidebar}
+              className={({ isActive }) => `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${isActive ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"}`}>
               <l.icon className="h-4 w-4" />
               {l.label}
             </NavLink>
           ))}
         </nav>
         <div className="p-4 border-t border-sidebar-border">
-          <button
-            onClick={handleSignOut}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground transition-colors w-full"
-          >
+          <button onClick={handleSignOut} className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground transition-colors w-full">
             <LogOut className="h-4 w-4" />
             Sair
           </button>
         </div>
       </aside>
-
       <main className="flex-1 bg-background overflow-auto">
-        {/* Mobile header */}
         {isMobile && (
           <header className="sticky top-0 z-30 bg-background border-b border-border px-4 py-3 flex items-center gap-3">
-            <button onClick={() => setSidebarOpen(true)} className="text-foreground">
-              <Menu className="h-6 w-6" />
-            </button>
+            <button onClick={() => setSidebarOpen(true)} className="text-foreground"><Menu className="h-6 w-6" /></button>
             <span className="text-sm font-semibold text-foreground">Painel Admin</span>
           </header>
         )}
-        <div className="p-4 md:p-8">
-          <Outlet />
-        </div>
+        <div className="p-4 md:p-8"><Outlet /></div>
       </main>
     </div>
   );
