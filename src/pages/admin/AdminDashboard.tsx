@@ -193,28 +193,10 @@ export default function AdminDashboard() {
     await fetchData();
   };
 
-  // Despesas — auto-inserir padrão
+  // Despesas — NÃO auto-inserir despesas globais (tráfego/FATEB), somente despesas específicas do aluno
   const openDespesasModal = async (m: any) => {
-    const despesasExistentes = despesas.filter(d => d.matricula_id === m.id);
-
-    if (despesasExistentes.length === 0) {
-      const vendedor = vendedores.find(v => v.id === m.vendedor_id);
-      const inserts: any[] = [];
-
-      if (vendedor?.despesa_trafego_padrao > 0) {
-        inserts.push({ matricula_id: m.id, tipo: 'trafego', descricao: 'Tráfego pago (padrão)', valor: vendedor.despesa_trafego_padrao });
-      }
-      if (vendedor?.despesa_fateb_padrao > 0) {
-        inserts.push({ matricula_id: m.id, tipo: 'taxa_fateb', descricao: 'Taxa FATEB (padrão)', valor: vendedor.despesa_fateb_padrao });
-      }
-      if (inserts.length > 0) {
-        await supabase.from('despesas_matricula').insert(inserts as any);
-        await fetchData();
-      }
-    }
-
     setDespesasModal(m);
-    setNovaDespesa({ tipo: 'trafego', descricao: '', valor: '' });
+    setNovaDespesa({ tipo: 'outro', descricao: '', valor: '' });
   };
 
   const addDespesa = async () => {
