@@ -453,8 +453,9 @@ export default function AdminDashboard() {
                 <th className="text-left p-3 text-muted-foreground font-medium">Modelo</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">Matrículas</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">Total Vendas</th>
+                <th className="text-left p-3 text-muted-foreground font-medium">Comissão Paga</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">Despesas</th>
-                <th className="text-left p-3 text-muted-foreground font-medium">A Pagar dia 17</th>
+                <th className="text-left p-3 text-muted-foreground font-medium">Líquido dia 17</th>
               </tr>
             </thead>
             <tbody>
@@ -470,8 +471,16 @@ export default function AdminDashboard() {
                   </td>
                   <td className="p-3 text-foreground">{v.count}</td>
                   <td className="p-3 text-foreground">R$ {v.total.toFixed(2)}</td>
-                  <td className="p-3 text-destructive">-R$ {v.despesas.toFixed(2)}</td>
-                  <td className="p-3 font-bold text-success">R$ {v.aPagarDia17.toFixed(2)}</td>
+                  <td className="p-3 text-foreground font-medium">R$ {v.comissaoBruta.toFixed(2)}</td>
+                  <td className="p-3">
+                    <div className="flex flex-col">
+                      <span className="text-destructive font-medium">-R$ {v.totalDesp.toFixed(2)}</span>
+                      {v.despesaTrafego > 0 && <span className="text-xs text-muted-foreground">Tráfego: R$ {v.despesaTrafego.toFixed(2)}</span>}
+                      {v.despesaFateb > 0 && <span className="text-xs text-muted-foreground">FATEB: R$ {v.despesaFateb.toFixed(2)}</span>}
+                      {v.despesasEspecificas > 0 && <span className="text-xs text-muted-foreground">Específicas: R$ {v.despesasEspecificas.toFixed(2)}</span>}
+                    </div>
+                  </td>
+                  <td className={`p-3 font-bold ${v.aPagarDia17 >= 0 ? 'text-success' : 'text-destructive'}`}>R$ {v.aPagarDia17.toFixed(2)}</td>
                 </tr>
               ))}
             </tbody>
