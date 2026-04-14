@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { StatCard } from "@/components/StatCard";
-import { FileText, CheckCircle, XCircle, DollarSign, TrendingUp, ClipboardList, Receipt, Trash2 } from "lucide-react";
+import { FileText, CheckCircle, XCircle, DollarSign, TrendingUp, ClipboardList, Receipt, Trash2, Users, UserCheck } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -75,11 +75,15 @@ export default function AdminDashboard() {
     return true;
   });
 
+  // Separate: vendedor enrollments vs referral enrollments
+  const filteredVendedores = filtered.filter(m => m.vendedor_id && !m.indicador_id);
+  const filteredIndicacoes = filtered.filter(m => m.indicador_id);
+
   const totalPago = filtered.filter((m) => m.status === "pago").length;
   const totalNaoPago = filtered.filter((m) => m.status === "nao_pago").length;
 
   // Comissão fixa: apenas matrículas de vendedores com modelo 'fixo'
-  const comissaoFixaTotal = filtered
+  const comissaoFixaTotal = filteredVendedores
     .filter(m => (m.vendedores?.modelo_comissao ?? 'fixo') === 'fixo')
     .reduce((sum, m) => sum + (m.cursos?.comissao_primeira_parcela ?? 0), 0);
 
@@ -87,7 +91,7 @@ export default function AdminDashboard() {
   const comissaoParceladaPendente = comissoesParcelas
     .filter(p => p.status === 'pendente')
     .filter(p => {
-      const mat = filtered.find(m => m.id === p.matricula_id);
+      const mat = filteredVendedores.find(m => m.id === p.matricula_id);
       return mat?.vendedores?.modelo_comissao === 'parcelado';
     })
     .reduce((sum, p) => sum + Number(p.valor_comissao), 0);
@@ -97,7 +101,7 @@ export default function AdminDashboard() {
     const { error } = await supabase.from("matriculas").update({ status: newStatus }).eq("id", id);
     if (error) { toast.error("Erro ao atualizar status"); return; }
 
-    // Gerar cashback se necessário
+    // Gerar cashback se necessário (20% do valor da parcela)
     if (newStatus === 'pago') {
       const matricula = matriculas.find(m => m.id === id);
       if (matricula?.indicador_id) {
@@ -108,20 +112,18 @@ export default function AdminDashboard() {
           .maybeSingle();
 
         if (!existing) {
-          const { data: cfg } = await supabase
-            .from('configuracoes')
-            .select('valor')
-            .eq('chave', 'valor_cashback')
-            .single();
+          // 20% do valor da parcela do curso
+          const qtdParcelas = matricula.quantidade_parcelas ?? 1;
+          const valorParcela = Number(matricula.valor_total) / qtdParcelas;
+          const valorCashback = valorParcela * 0.20;
 
-          const valorCashback = parseFloat(cfg?.valor ?? '50');
           await supabase.from('cashbacks').insert({
             indicador_id: matricula.indicador_id,
             matricula_id: id,
-            valor: valorCashback,
+            valor: Number(valorCashback.toFixed(2)),
             status: 'pendente',
           } as any);
-          toast.success('Cashback gerado para o indicador!');
+          toast.success('Cashback gerado (20% da parcela)!');
         }
       }
     }
@@ -131,11 +133,12 @@ export default function AdminDashboard() {
   };
 
   const exportCSV = () => {
-    const headers = ["Nome", "CPF", "Email", "WhatsApp", "Curso", "Tipo Pgto", "Parcelas", "Vencimento", "Status", "Valor", "Comissão", "Data"];
+    const headers = ["Nome", "CPF", "Email", "WhatsApp", "Curso", "Tipo Pgto", "Parcelas", "Vencimento", "Status", "Valor", "Comissão", "Origem", "Data"];
     const rows = filtered.map((m) => [
       m.nome_completo, m.cpf, m.email, m.whatsapp,
       m.cursos?.nome ?? "", m.tipo_pagamento, m.quantidade_parcelas ?? "",
       m.data_vencimento, m.status, m.valor_total, calcComissao(m).toFixed(2),
+      m.indicador_id ? "Indicação" : "Vendedor",
       new Date(m.criado_em).toLocaleDateString("pt-BR"),
     ]);
     const csv = [headers, ...rows].map((r) => r.join(";")).join("\n");
@@ -234,43 +237,52 @@ export default function AdminDashboard() {
     await fetchData();
   };
 
-  // Comissão por vendedor — com despesas
+  // Comissão por vendedor — "A pagar dia 17": comissão pendente menos despesas
   const comissaoPorVendedor = vendedores.map((v) => {
-    const ms = filtered.filter((m) => m.vendedor_id === v.id);
+    const ms = filteredVendedores.filter((m) => m.vendedor_id === v.id);
     const total = ms.reduce((s, m) => s + Number(m.valor_total), 0);
-    const comissao = ms.reduce((s, m) => s + calcComissao(m), 0);
     const totalDesp = ms.reduce((s, m) => {
       return s + despesas
         .filter(d => d.matricula_id === m.id)
         .reduce((sd, d) => sd + Number(d.valor), 0);
     }, 0);
 
-    // Calcular mensal e acumulado para modelo parcelado
     const modelo = (v as any).modelo_comissao ?? 'fixo';
-    let comissaoMensal = 0;
-    let comissaoAcumulada = 0;
-    if (modelo === 'parcelado') {
+
+    let aPagarDia17 = 0;
+    if (modelo === 'fixo') {
+      // For fixed: sum of comissão for pending (nao_pago) enrollments
+      const comissaoBruta = ms.reduce((s, m) => s + (m.cursos?.comissao_primeira_parcela ?? 0), 0);
+      aPagarDia17 = comissaoBruta - totalDesp;
+    } else {
+      // For parcelado: sum of pending parcels minus expenses
       const vParcelas = comissoesParcelas.filter(p => ms.some(m => m.id === p.matricula_id));
-      comissaoAcumulada = vParcelas
-        .filter(p => p.status === 'pago')
-        .reduce((s, p) => s + Number(p.valor_comissao), 0);
-      // Mensal = valor de uma parcela de comissão (média)
       const pendentes = vParcelas.filter(p => p.status === 'pendente');
-      comissaoMensal = pendentes.length > 0 ? Number(pendentes[0].valor_comissao) : 0;
+      // Monthly: next batch of pending parcels (one per matricula)
+      const parcelasMensal = pendentes.reduce((s, p) => s + Number(p.valor_comissao), 0);
+      // Pick only the next pending parcela per matricula for the monthly amount
+      const nextParcelas = new Map<string, number>();
+      pendentes.forEach(p => {
+        if (!nextParcelas.has(p.matricula_id)) {
+          nextParcelas.set(p.matricula_id, Number(p.valor_comissao));
+        }
+      });
+      const mensal = Array.from(nextParcelas.values()).reduce((s, v) => s + v, 0);
+      aPagarDia17 = mensal - totalDesp;
     }
 
     return {
       nome: v.profiles?.nome ?? v.codigo_ref,
       total,
-      comissao,
       count: ms.length,
       modelo,
       percentual: (v as any).comissao_percentual ?? 15,
       despesas: totalDesp,
-      comissaoMensal,
-      comissaoAcumulada,
+      aPagarDia17: Math.max(0, aPagarDia17),
     };
   }).filter((v) => v.count > 0);
+
+  const totalAPagarDia17 = comissaoPorVendedor.reduce((s, v) => s + v.aPagarDia17, 0);
 
   const modalParcelas = parcelasModal
     ? comissoesParcelas.filter((p) => p.matricula_id === parcelasModal.id).sort((a, b) => a.numero_parcela - b.numero_parcela)
@@ -284,6 +296,92 @@ export default function AdminDashboard() {
   const comissaoBrutaModal = despesasModal ? calcComissao(despesasModal) : 0;
   const comissaoLiquidaModal = comissaoBrutaModal - despesasTotal;
 
+  const renderMatriculaTable = (items: any[], title: string, icon: any) => (
+    <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="p-4 border-b border-border flex items-center gap-2">
+        {icon}
+        <h2 className="text-base font-semibold text-foreground">{title}</h2>
+        <span className="text-xs text-muted-foreground ml-auto">{items.length} matrícula(s)</span>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border bg-muted/50">
+              <th className="text-left p-3 text-muted-foreground font-medium">Nome</th>
+              <th className="text-left p-3 text-muted-foreground font-medium">Curso</th>
+              <th className="text-left p-3 text-muted-foreground font-medium">{title === "Matrículas por Indicação" ? "Indicador" : "Vendedor"}</th>
+              <th className="text-left p-3 text-muted-foreground font-medium">Tipo Pgto</th>
+              <th className="text-left p-3 text-muted-foreground font-medium">Parcelas</th>
+              <th className="text-left p-3 text-muted-foreground font-medium">Vencimento</th>
+              <th className="text-left p-3 text-muted-foreground font-medium">Valor</th>
+              <th className="text-left p-3 text-muted-foreground font-medium">Comissão</th>
+              <th className="text-left p-3 text-muted-foreground font-medium">Status</th>
+              <th className="text-left p-3 text-muted-foreground font-medium">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((m) => {
+              const modelo = m.vendedores?.modelo_comissao ?? 'fixo';
+              const mDespesas = despesas.filter((d) => d.matricula_id === m.id);
+              const totalDesp = mDespesas.reduce((s: number, d: any) => s + Number(d.valor), 0);
+              return (
+                <tr key={m.id} className="border-b border-border hover:bg-muted/30 transition-colors">
+                  <td className="p-3 text-foreground">{m.nome_completo}</td>
+                  <td className="p-3 text-foreground">{m.cursos?.nome}</td>
+                  <td className="p-3 text-foreground">{m.vendedores?.profiles?.nome ?? m.vendedores?.codigo_ref ?? "—"}</td>
+                  <td className="p-3 text-foreground">{m.tipo_pagamento === "a_vista" ? "À vista" : "Parcelado"}</td>
+                  <td className="p-3 text-foreground">{m.quantidade_parcelas ?? "-"}</td>
+                  <td className="p-3 text-foreground">{m.data_vencimento}</td>
+                  <td className="p-3 text-foreground">R$ {Number(m.valor_total).toFixed(2)}</td>
+                  <td className="p-3 text-foreground">
+                    <div className="flex flex-col">
+                      <span className="font-medium">R$ {calcComissao(m).toFixed(2)}</span>
+                      {modelo === 'parcelado' && m._parcelasCount > 0 && (
+                        <span className="text-xs text-muted-foreground">{m._parcelasPagas}/{m._parcelasCount} pagas</span>
+                      )}
+                      {totalDesp > 0 && (
+                        <span className="text-xs text-destructive">-R$ {totalDesp.toFixed(2)} desp.</span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="p-3">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                      m.status === "pago"
+                        ? "bg-success/10 text-success"
+                        : "bg-destructive/10 text-destructive"
+                    }`}>
+                      {m.status === "pago" ? "Pago" : "Não pago"}
+                    </span>
+                  </td>
+                  <td className="p-3">
+                    <div className="flex items-center gap-1">
+                      <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => toggleStatus(m.id, m.status)}>
+                        {m.status === "pago" ? "Não pago" : "Pago"}
+                      </Button>
+                      {modelo === 'parcelado' && m.vendedor_id && (
+                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title="Parcelas de comissão" onClick={() => openParcelasModal(m)}>
+                          <ClipboardList className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                      {m.vendedor_id && (
+                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title="Despesas" onClick={() => openDespesasModal(m)}>
+                          <Receipt className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+            {items.length === 0 && (
+              <tr><td colSpan={10} className="p-8 text-center text-muted-foreground">Nenhuma matrícula encontrada</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-6 animate-fade-in">
       <h1 className="text-2xl font-bold text-foreground">Dashboard Admin</h1>
@@ -293,7 +391,7 @@ export default function AdminDashboard() {
         <StatCard title="Pagas" value={totalPago} icon={CheckCircle} variant="success" />
         <StatCard title="Não Pagas" value={totalNaoPago} icon={XCircle} variant="destructive" />
         <StatCard title="Comissão Fixa" value={`R$ ${comissaoFixaTotal.toFixed(2)}`} icon={DollarSign} variant="warning" />
-        <StatCard title="Comissão Parcelada Pendente" value={`R$ ${comissaoParceladaPendente.toFixed(2)}`} icon={TrendingUp} variant="default" />
+        <StatCard title="A Pagar dia 17" value={`R$ ${totalAPagarDia17.toFixed(2)}`} icon={TrendingUp} variant="default" />
       </div>
 
       {/* Filters */}
@@ -352,97 +450,25 @@ export default function AdminDashboard() {
 
       {showResults && (
       <>
-      {/* Matriculas Table */}
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-muted/50">
-                <th className="text-left p-3 text-muted-foreground font-medium">Nome</th>
-                <th className="text-left p-3 text-muted-foreground font-medium">Curso</th>
-                <th className="text-left p-3 text-muted-foreground font-medium">Vendedor</th>
-                <th className="text-left p-3 text-muted-foreground font-medium">Tipo Pgto</th>
-                <th className="text-left p-3 text-muted-foreground font-medium">Parcelas</th>
-                <th className="text-left p-3 text-muted-foreground font-medium">Vencimento</th>
-                <th className="text-left p-3 text-muted-foreground font-medium">Valor</th>
-                <th className="text-left p-3 text-muted-foreground font-medium">Comissão</th>
-                <th className="text-left p-3 text-muted-foreground font-medium">Status</th>
-                <th className="text-left p-3 text-muted-foreground font-medium">Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((m) => {
-                const modelo = m.vendedores?.modelo_comissao ?? 'fixo';
-                const mDespesas = despesas.filter((d) => d.matricula_id === m.id);
-                const totalDesp = mDespesas.reduce((s: number, d: any) => s + Number(d.valor), 0);
-                return (
-                  <tr key={m.id} className="border-b border-border hover:bg-muted/30 transition-colors">
-                    <td className="p-3 text-foreground">{m.nome_completo}</td>
-                    <td className="p-3 text-foreground">{m.cursos?.nome}</td>
-                    <td className="p-3 text-foreground">{m.vendedores?.profiles?.nome ?? m.vendedores?.codigo_ref}</td>
-                    <td className="p-3 text-foreground">{m.tipo_pagamento === "a_vista" ? "À vista" : "Parcelado"}</td>
-                    <td className="p-3 text-foreground">{m.quantidade_parcelas ?? "-"}</td>
-                    <td className="p-3 text-foreground">{m.data_vencimento}</td>
-                    <td className="p-3 text-foreground">R$ {Number(m.valor_total).toFixed(2)}</td>
-                    <td className="p-3 text-foreground">
-                      <div className="flex flex-col">
-                        <span className="font-medium">R$ {calcComissao(m).toFixed(2)}</span>
-                        {modelo === 'parcelado' && m._parcelasCount > 0 && (
-                          <span className="text-xs text-muted-foreground">{m._parcelasPagas}/{m._parcelasCount} pagas</span>
-                        )}
-                        {totalDesp > 0 && (
-                          <span className="text-xs text-destructive">-R$ {totalDesp.toFixed(2)} desp.</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="p-3">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                        m.status === "pago"
-                          ? "bg-success/10 text-success"
-                          : "bg-destructive/10 text-destructive"
-                      }`}>
-                        {m.status === "pago" ? "Pago" : "Não pago"}
-                      </span>
-                    </td>
-                    <td className="p-3">
-                      <div className="flex items-center gap-1">
-                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => toggleStatus(m.id, m.status)}>
-                          {m.status === "pago" ? "Não pago" : "Pago"}
-                        </Button>
-                        {modelo === 'parcelado' && (
-                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title="Parcelas de comissão" onClick={() => openParcelasModal(m)}>
-                            <ClipboardList className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title="Despesas" onClick={() => openDespesasModal(m)}>
-                          <Receipt className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-              {filtered.length === 0 && (
-                <tr><td colSpan={10} className="p-8 text-center text-muted-foreground">Nenhuma matrícula encontrada</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      {/* Matrículas de Vendedores */}
+      {renderMatriculaTable(filteredVendedores, "Matrículas por Vendedor", <Users className="h-5 w-5 text-primary" />)}
 
-      {/* Comissão por Vendedor */}
+      {/* Matrículas por Indicação */}
+      {filteredIndicacoes.length > 0 && renderMatriculaTable(filteredIndicacoes, "Matrículas por Indicação", <UserCheck className="h-5 w-5 text-amber-500" />)}
+
+      {/* Comissão por Vendedor — A pagar dia 17 */}
       {comissaoPorVendedor.length > 0 && (
         <div className="bg-card border border-border rounded-xl p-6">
-          <h2 className="text-lg font-semibold text-foreground mb-4">Comissão por Vendedor</h2>
+          <h2 className="text-lg font-semibold text-foreground mb-4">Fechamento dia 17 — A Pagar por Vendedor</h2>
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border">
                 <th className="text-left p-3 text-muted-foreground font-medium">Vendedor</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">Modelo</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">Matrículas</th>
-                <th className="text-left p-3 text-muted-foreground font-medium">Total</th>
-                <th className="text-left p-3 text-muted-foreground font-medium">Comissão</th>
+                <th className="text-left p-3 text-muted-foreground font-medium">Total Vendas</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">Despesas</th>
+                <th className="text-left p-3 text-muted-foreground font-medium">A Pagar dia 17</th>
               </tr>
             </thead>
             <tbody>
@@ -458,18 +484,8 @@ export default function AdminDashboard() {
                   </td>
                   <td className="p-3 text-foreground">{v.count}</td>
                   <td className="p-3 text-foreground">R$ {v.total.toFixed(2)}</td>
-                  <td className="p-3 text-foreground font-medium">
-                    <div className="flex flex-col">
-                      <span>R$ {v.comissao.toFixed(2)}</span>
-                      {v.modelo === 'parcelado' && (
-                        <>
-                          <span className="text-xs text-muted-foreground">Mensal: R$ {v.comissaoMensal.toFixed(2)}</span>
-                          <span className="text-xs text-success">Acumulado: R$ {v.comissaoAcumulada.toFixed(2)}</span>
-                        </>
-                      )}
-                    </div>
-                  </td>
-                  <td className="p-3 text-destructive">R$ {v.despesas.toFixed(2)}</td>
+                  <td className="p-3 text-destructive">-R$ {v.despesas.toFixed(2)}</td>
+                  <td className="p-3 font-bold text-success">R$ {v.aPagarDia17.toFixed(2)}</td>
                 </tr>
               ))}
             </tbody>

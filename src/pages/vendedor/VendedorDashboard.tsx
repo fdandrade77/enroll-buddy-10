@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { StatCard } from "@/components/StatCard";
-import { FileText, CheckCircle, XCircle, DollarSign, Copy, Link, ChevronDown, ChevronUp } from "lucide-react";
+import { FileText, CheckCircle, XCircle, DollarSign, Copy, Link, ChevronDown, ChevronUp, TrendingUp } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,7 @@ export default function VendedorDashboard() {
 
   useEffect(() => {
     if (!user) return;
-    const fetch = async () => {
+    const fetchAll = async () => {
       const { data: vData } = await supabase
         .from("vendedores")
         .select("*")
@@ -51,7 +51,7 @@ export default function VendedorDashboard() {
       const { data: cData } = await supabase.from("cursos").select("*").eq("ativo", true);
       setCursos(cData ?? []);
     };
-    fetch();
+    fetchAll();
   }, [user]);
 
   const filtered = matriculas.filter((m) => {
@@ -73,17 +73,33 @@ export default function VendedorDashboard() {
     if (parcelas.length > 0) {
       return parcelas.reduce((s: number, p: any) => s + Number(p.valor_comissao), 0);
     }
-    // Estimate if no parcelas generated yet
     const qtd = m.quantidade_parcelas ?? m.cursos?.max_parcelas ?? 1;
     const valorParcela = Number(m.valor_total) / qtd;
     return (valorParcela * percentual / 100) * qtd;
   };
 
+  // Mensal: next pending parcela per matricula
+  const calcMensal = (): number => {
+    if (modelo === 'fixo') return 0;
+    let mensal = 0;
+    const seen = new Set<string>();
+    const sorted = [...comissoesParcelas]
+      .filter(p => p.status === 'pendente')
+      .sort((a, b) => a.numero_parcela - b.numero_parcela);
+    for (const p of sorted) {
+      if (!seen.has(p.matricula_id)) {
+        seen.add(p.matricula_id);
+        mensal += Number(p.valor_comissao);
+      }
+    }
+    return mensal;
+  };
+
   const totalPago = filtered.filter((m) => m.status === "pago").length;
   const totalNaoPago = filtered.filter((m) => m.status === "nao_pago").length;
   const comissaoTotal = filtered.reduce((sum, m) => sum + calcComissao(m), 0);
+  const comissaoMensal = calcMensal();
 
-  // Sub-card values
   const comissaoRecebida = filtered.reduce((sum, m) => {
     if (modelo === 'parcelado') {
       const parcelas = comissoesParcelas.filter((p) => p.matricula_id === m.id && p.status === 'pago');
@@ -128,8 +144,8 @@ export default function VendedorDashboard() {
         <StatCard title="Comissão Total" value={`R$ ${comissaoTotal.toFixed(2)}`} icon={DollarSign} variant="warning" />
       </div>
 
-      {/* Sub-cards: Já recebido / A receber */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Sub-cards: Já recebido / A receber / Mensal */}
+      <div className={`grid grid-cols-1 ${modelo === 'parcelado' ? 'md:grid-cols-3' : 'md:grid-cols-2'} gap-4`}>
         <div className="bg-success/10 border border-success/20 rounded-xl p-4 flex items-center justify-between">
           <div>
             <p className="text-xs text-muted-foreground">Já Recebido</p>
@@ -144,6 +160,15 @@ export default function VendedorDashboard() {
           </div>
           <DollarSign className="h-8 w-8 text-amber-500/40" />
         </div>
+        {modelo === 'parcelado' && (
+          <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4 flex items-center justify-between">
+            <div>
+              <p className="text-xs text-muted-foreground">Valor Mensal (próximas parcelas)</p>
+              <p className="text-xl font-bold text-blue-600">R$ {comissaoMensal.toFixed(2)}</p>
+            </div>
+            <TrendingUp className="h-8 w-8 text-blue-500/40" />
+          </div>
+        )}
       </div>
 
       {/* Gerar Link */}
