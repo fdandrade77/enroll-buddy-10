@@ -223,35 +223,35 @@ export default function AdminDashboard() {
   const comissaoPorVendedor = vendedores.map((v) => {
     const ms = filteredVendedores.filter((m) => m.vendedor_id === v.id);
     const total = ms.reduce((s, m) => s + Number(m.valor_total), 0);
-    const totalDesp = ms.reduce((s, m) => {
+    
+    // Despesas específicas por aluno (do modal de despesas)
+    const despesasEspecificas = ms.reduce((s, m) => {
       return s + despesas
         .filter(d => d.matricula_id === m.id)
         .reduce((sd, d) => sd + Number(d.valor), 0);
     }, 0);
 
+    // Despesas globais do vendedor (tráfego + FATEB)
+    const despesaTrafego = Number(v.despesa_trafego_padrao ?? 0);
+    const despesaFateb = Number(v.despesa_fateb_padrao ?? 0);
+    const totalDespGlobal = despesaTrafego + despesaFateb;
+    const totalDesp = despesasEspecificas + totalDespGlobal;
+
     const modelo = (v as any).modelo_comissao ?? 'fixo';
 
-    let aPagarDia17 = 0;
+    // Comissão bruta baseada em parcelas pagas (status=pago das matriculas ou parcelas de comissão pagas)
+    let comissaoBruta = 0;
     if (modelo === 'fixo') {
-      // For fixed: sum of comissão for pending (nao_pago) enrollments
-      const comissaoBruta = ms.reduce((s, m) => s + (m.cursos?.comissao_primeira_parcela ?? 0), 0);
-      aPagarDia17 = comissaoBruta - totalDesp;
+      // Para fixo: comissão das matrículas pagas
+      comissaoBruta = ms.filter(m => m.status === 'pago').reduce((s, m) => s + (m.cursos?.comissao_primeira_parcela ?? 0), 0);
     } else {
-      // For parcelado: sum of pending parcels minus expenses
+      // Para parcelado: soma das parcelas de comissão pagas
       const vParcelas = comissoesParcelas.filter(p => ms.some(m => m.id === p.matricula_id));
-      const pendentes = vParcelas.filter(p => p.status === 'pendente');
-      // Monthly: next batch of pending parcels (one per matricula)
-      const parcelasMensal = pendentes.reduce((s, p) => s + Number(p.valor_comissao), 0);
-      // Pick only the next pending parcela per matricula for the monthly amount
-      const nextParcelas = new Map<string, number>();
-      pendentes.forEach(p => {
-        if (!nextParcelas.has(p.matricula_id)) {
-          nextParcelas.set(p.matricula_id, Number(p.valor_comissao));
-        }
-      });
-      const mensal = Array.from(nextParcelas.values()).reduce((s, v) => s + v, 0);
-      aPagarDia17 = mensal - totalDesp;
+      const pagas = vParcelas.filter(p => p.status === 'pago');
+      comissaoBruta = pagas.reduce((s, p) => s + Number(p.valor_comissao), 0);
     }
+
+    const aPagarDia17 = comissaoBruta - totalDesp;
 
     return {
       nome: v.profiles?.nome ?? v.codigo_ref,
@@ -259,8 +259,12 @@ export default function AdminDashboard() {
       count: ms.length,
       modelo,
       percentual: (v as any).comissao_percentual ?? 15,
-      despesas: totalDesp,
-      aPagarDia17: Math.max(0, aPagarDia17),
+      despesasEspecificas,
+      despesaTrafego,
+      despesaFateb,
+      totalDesp,
+      comissaoBruta,
+      aPagarDia17,
     };
   }).filter((v) => v.count > 0);
 
