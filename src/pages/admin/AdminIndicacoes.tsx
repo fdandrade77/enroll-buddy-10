@@ -33,6 +33,7 @@ interface Cashback {
 export default function AdminIndicacoes() {
   const [indicadores, setIndicadores] = useState<Indicador[]>([]);
   const [cashbacks, setCashbacks] = useState<Cashback[]>([]);
+  const [matriculasIndicadas, setMatriculasIndicadas] = useState<any[]>([]);
 
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -45,12 +46,14 @@ export default function AdminIndicacoes() {
   const [showResults, setShowResults] = useState(false);
 
   const fetchData = async () => {
-    const [iRes, cRes] = await Promise.all([
+    const [iRes, cRes, mRes] = await Promise.all([
       supabase.from("indicadores").select("*").order("criado_em", { ascending: false }),
       supabase.from("cashbacks").select("*, matriculas(nome_completo, curso_id, status, valor_total, quantidade_parcelas, criado_em, cursos(nome, valor_total, max_parcelas)), indicadores(nome)"),
+      supabase.from("matriculas").select("*, cursos(nome, valor_total, max_parcelas), indicadores(nome)").not("indicador_id", "is", null),
     ]);
     setIndicadores((iRes.data as any) ?? []);
     setCashbacks((cRes.data as any) ?? []);
+    setMatriculasIndicadas((mRes.data as any) ?? []);
   };
 
   useEffect(() => { fetchData(); }, []);
@@ -141,25 +144,29 @@ export default function AdminIndicacoes() {
     toast.success("Copiado!");
   };
 
-  // Calc comissão per cashback: 20% of course installment value
-  const calcCashbackComissao = (cb: Cashback) => {
-    const qtd = cb.matriculas?.quantidade_parcelas ?? 1;
-    const valorTotal = Number(cb.matriculas?.valor_total ?? 0);
+  // Calc comissão per matricula indicada: 20% of course installment value
+  const calcIndicacaoComissao = (m: any) => {
+    const qtd = m.quantidade_parcelas ?? 1;
+    const valorTotal = Number(m.valor_total ?? 0);
     const valorParcela = valorTotal / qtd;
     return valorParcela * 0.20;
   };
 
   const exportCSV = () => {
-    const headers = ["Aluno", "Curso", "Indicador", "Data", "Status Matrícula", "Comissão (R$)", "Status Cashback"];
-    const rows = filteredCashbacks.map((cb) => [
-      cb.matriculas?.nome_completo ?? "",
-      cb.matriculas?.cursos?.nome ?? "",
-      cb.indicadores?.nome ?? "",
-      new Date(cb.criado_em).toLocaleDateString("pt-BR"),
-      cb.matriculas?.status ?? "",
-      calcCashbackComissao(cb).toFixed(2),
-      cb.status,
-    ]);
+    const headers = ["Aluno", "Curso", "Indicador", "Data", "Status Matrícula", "Valor Parcela", "Comissão 20% (R$)", "Status Cashback"];
+    const rows = filteredMatriculas.map((m) => {
+      const cb = cashbacks.find(c => c.matricula_id === m.id);
+      return [
+        m.nome_completo ?? "",
+        m.cursos?.nome ?? "",
+        m.indicadores?.nome ?? "",
+        new Date(m.criado_em).toLocaleDateString("pt-BR"),
+        m.status ?? "",
+        (Number(m.valor_total) / (m.quantidade_parcelas ?? 1)).toFixed(2),
+        calcIndicacaoComissao(m).toFixed(2),
+        cb?.status ?? "sem cashback",
+      ];
+    });
     const csv = [headers, ...rows].map((r) => r.join(";")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
@@ -170,15 +177,22 @@ export default function AdminIndicacoes() {
 
   // Stats per indicador
   const getIndicadorStats = (id: string) => {
+    const mats = matriculasIndicadas.filter(m => m.indicador_id === id);
+    const totalComissao = mats.reduce((s, m) => s + calcIndicacaoComissao(m), 0);
     const cbs = cashbacks.filter(cb => cb.indicador_id === id);
-    const pendente = cbs.reduce((s, cb) => s + (cb.status === 'pendente' ? calcCashbackComissao(cb) : 0), 0);
-    const pago = cbs.reduce((s, cb) => s + (cb.status === 'pago' ? calcCashbackComissao(cb) : 0), 0);
-    return { pendente, pago, total: cbs.length };
+    const pago = cbs.filter(cb => cb.status === 'pago').reduce((s, cb) => s + Number(cb.valor), 0);
+    const pendente = totalComissao - pago;
+    return { pendente: Math.max(0, pendente), pago, total: mats.length };
   };
 
-  const filteredCashbacks = cashbacks.filter(cb => {
-    if (filtroIndicador !== "all" && cb.indicador_id !== filtroIndicador) return false;
-    if (filtroStatusCashback !== "all" && cb.status !== filtroStatusCashback) return false;
+  const filteredMatriculas = matriculasIndicadas.filter(m => {
+    if (filtroIndicador !== "all" && m.indicador_id !== filtroIndicador) return false;
+    if (filtroStatusCashback !== "all") {
+      const cb = cashbacks.find(c => c.matricula_id === m.id);
+      if (filtroStatusCashback === "sem_cashback" && cb) return false;
+      if (filtroStatusCashback === "pendente" && cb?.status !== "pendente") return false;
+      if (filtroStatusCashback === "pago" && cb?.status !== "pago") return false;
+    }
     return true;
   });
 
@@ -293,9 +307,12 @@ export default function AdminIndicacoes() {
 
       {/* Indicações Realizadas */}
       <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-        <h2 className="text-lg font-semibold text-foreground">Indicações Realizadas</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-foreground">Indicações Realizadas</h2>
+          <Button variant="outline" size="sm" onClick={exportCSV} disabled={!showResults}>Exportar CSV</Button>
+        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div>
             <label className="text-xs text-muted-foreground">Indicador</label>
             <Select value={filtroIndicador} onValueChange={setFiltroIndicador}>
@@ -316,15 +333,13 @@ export default function AdminIndicacoes() {
                 <SelectItem value="all">Todos</SelectItem>
                 <SelectItem value="pendente">Pendente</SelectItem>
                 <SelectItem value="pago">Pago</SelectItem>
-                <SelectItem value="cancelado">Cancelado</SelectItem>
+                <SelectItem value="sem_cashback">Sem cashback</SelectItem>
               </SelectContent>
             </Select>
           </div>
-        </div>
-
-        <div className="flex justify-end gap-3">
-          <Button onClick={() => setShowResults(true)}>Filtrar</Button>
-          <Button variant="outline" size="sm" onClick={exportCSV} disabled={!showResults}>Exportar CSV</Button>
+          <div className="flex items-end">
+            <Button className="w-full" onClick={() => setShowResults(true)}>Filtrar</Button>
+          </div>
         </div>
 
         {showResults && (
@@ -339,47 +354,54 @@ export default function AdminIndicacoes() {
                 <th className="text-left p-3 text-muted-foreground font-medium">Valor Parcela</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">Comissão (20%)</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">Status Matrícula</th>
-                <th className="text-left p-3 text-muted-foreground font-medium">Status</th>
+                <th className="text-left p-3 text-muted-foreground font-medium">Status Cashback</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">Ação</th>
               </tr>
             </thead>
             <tbody>
-              {filteredCashbacks.map((cb) => {
-                const qtd = cb.matriculas?.quantidade_parcelas ?? 1;
-                const valorTotal = Number(cb.matriculas?.valor_total ?? 0);
+              {filteredMatriculas.map((m) => {
+                const qtd = m.quantidade_parcelas ?? 1;
+                const valorTotal = Number(m.valor_total ?? 0);
                 const valorParcela = valorTotal / qtd;
                 const comissao = valorParcela * 0.20;
+                const cb = cashbacks.find(c => c.matricula_id === m.id);
                 return (
-                  <tr key={cb.id} className="border-b border-border hover:bg-muted/30 transition-colors">
-                    <td className="p-3 text-foreground">{cb.matriculas?.nome_completo ?? "—"}</td>
-                    <td className="p-3 text-foreground">{cb.matriculas?.cursos?.nome ?? "—"}</td>
-                    <td className="p-3 text-foreground">{cb.indicadores?.nome ?? "—"}</td>
-                    <td className="p-3 text-foreground">{new Date(cb.criado_em).toLocaleDateString("pt-BR")}</td>
+                  <tr key={m.id} className="border-b border-border hover:bg-muted/30 transition-colors">
+                    <td className="p-3 text-foreground">{m.nome_completo ?? "—"}</td>
+                    <td className="p-3 text-foreground">{m.cursos?.nome ?? "—"}</td>
+                    <td className="p-3 text-foreground">{m.indicadores?.nome ?? "—"}</td>
+                    <td className="p-3 text-foreground">{new Date(m.criado_em).toLocaleDateString("pt-BR")}</td>
                     <td className="p-3 text-foreground">R$ {valorParcela.toFixed(2)}</td>
                     <td className="p-3 text-foreground font-medium">R$ {comissao.toFixed(2)}</td>
                     <td className="p-3">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                        cb.matriculas?.status === "pago" ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"
+                        m.status === "pago" ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"
                       }`}>
-                        {cb.matriculas?.status === "pago" ? "Pago" : "Não pago"}
+                        {m.status === "pago" ? "Pago" : "Não pago"}
                       </span>
                     </td>
                     <td className="p-3">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                        cb.status === "pago" ? "bg-success/10 text-success" : "bg-amber-500/10 text-amber-600"
-                      }`}>
-                        {cb.status === "pago" ? "Pago" : "Pendente"}
-                      </span>
+                      {cb ? (
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                          cb.status === "pago" ? "bg-success/10 text-success" : "bg-amber-500/10 text-amber-600"
+                        }`}>
+                          {cb.status === "pago" ? "Pago" : "Pendente"}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
                     </td>
                     <td className="p-3">
-                      <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => toggleCashbackStatus(cb)}>
-                        {cb.status === "pago" ? "Reverter" : "Pago"}
-                      </Button>
+                      {cb && (
+                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => toggleCashbackStatus(cb)}>
+                          {cb.status === "pago" ? "Reverter" : "Pago"}
+                        </Button>
+                      )}
                     </td>
                   </tr>
                 );
               })}
-              {filteredCashbacks.length === 0 && (
+              {filteredMatriculas.length === 0 && (
                 <tr><td colSpan={9} className="p-8 text-center text-muted-foreground">Nenhuma indicação encontrada</td></tr>
               )}
             </tbody>
@@ -388,18 +410,19 @@ export default function AdminIndicacoes() {
         )}
       </div>
 
-      {/* Delete confirmation */}
-      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir indicador?</AlertDialogTitle>
             <AlertDialogDescription>
-              Essa ação não pode ser desfeita. O indicador <strong>{deleteTarget?.nome}</strong> e todos os cashbacks associados serão removidos.
+              Deseja realmente excluir "{deleteTarget?.nome}"? Isso também removerá os registros de cashback vinculados.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete}>Excluir</AlertDialogAction>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Excluir
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

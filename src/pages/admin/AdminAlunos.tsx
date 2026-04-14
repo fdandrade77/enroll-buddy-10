@@ -4,8 +4,11 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Search, Trash2 } from "lucide-react";
+import { Search, Trash2, ArrowUpDown } from "lucide-react";
 import { toast } from "sonner";
+
+type SortField = "nome" | "vencimento" | "criado_em";
+type SortDir = "asc" | "desc";
 
 export default function AdminAlunos() {
   const [matriculas, setMatriculas] = useState<any[]>([]);
@@ -17,6 +20,8 @@ export default function AdminAlunos() {
   const [filtroStatus, setFiltroStatus] = useState("all");
   const [showResults, setShowResults] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [sortField, setSortField] = useState<SortField>("criado_em");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
 
   const fetchData = async () => {
     const [mRes, vRes, cRes] = await Promise.all([
@@ -40,16 +45,53 @@ export default function AdminAlunos() {
     fetchData();
   };
 
-  const filtered = matriculas.filter((m) => {
-    if (filtroVendedor !== "all" && m.vendedor_id !== filtroVendedor) return false;
-    if (filtroCurso !== "all" && m.curso_id !== filtroCurso) return false;
-    if (filtroStatus !== "all" && m.status !== filtroStatus) return false;
-    if (busca) {
-      const term = busca.toLowerCase();
-      if (!m.nome_completo?.toLowerCase().includes(term) && !m.cpf?.includes(term) && !m.email?.toLowerCase().includes(term)) return false;
+  const toggleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDir(sortDir === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDir("asc");
     }
-    return true;
-  });
+  };
+
+  const filtered = matriculas
+    .filter((m) => {
+      if (filtroVendedor !== "all" && m.vendedor_id !== filtroVendedor) return false;
+      if (filtroCurso !== "all" && m.curso_id !== filtroCurso) return false;
+      if (filtroStatus !== "all" && m.status !== filtroStatus) return false;
+      if (busca) {
+        const term = busca.toLowerCase();
+        if (!m.nome_completo?.toLowerCase().includes(term) && !m.cpf?.includes(term) && !m.email?.toLowerCase().includes(term)) return false;
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      let valA: string, valB: string;
+      if (sortField === "nome") {
+        valA = (a.nome_completo ?? "").toLowerCase();
+        valB = (b.nome_completo ?? "").toLowerCase();
+      } else if (sortField === "vencimento") {
+        valA = a.data_vencimento ?? "";
+        valB = b.data_vencimento ?? "";
+      } else {
+        valA = a.criado_em ?? "";
+        valB = b.criado_em ?? "";
+      }
+      const cmp = valA < valB ? -1 : valA > valB ? 1 : 0;
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+
+  const SortHeader = ({ field, label }: { field: SortField; label: string }) => (
+    <th
+      className="text-left p-3 text-muted-foreground font-medium cursor-pointer hover:text-foreground select-none"
+      onClick={() => toggleSort(field)}
+    >
+      <span className="flex items-center gap-1">
+        {label}
+        <ArrowUpDown className={`h-3 w-3 ${sortField === field ? 'text-foreground' : 'opacity-40'}`} />
+      </span>
+    </th>
+  );
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -114,7 +156,7 @@ export default function AdminAlunos() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/50">
-                  <th className="text-left p-3 text-muted-foreground font-medium">Nome Completo</th>
+                  <SortHeader field="nome" label="Nome Completo" />
                   <th className="text-left p-3 text-muted-foreground font-medium">CPF</th>
                   <th className="text-left p-3 text-muted-foreground font-medium">E-mail</th>
                   <th className="text-left p-3 text-muted-foreground font-medium">WhatsApp</th>
@@ -122,10 +164,10 @@ export default function AdminAlunos() {
                   <th className="text-left p-3 text-muted-foreground font-medium">Vendedor</th>
                   <th className="text-left p-3 text-muted-foreground font-medium">Tipo Pgto</th>
                   <th className="text-left p-3 text-muted-foreground font-medium">Parcelas</th>
-                  <th className="text-left p-3 text-muted-foreground font-medium">Vencimento</th>
+                  <SortHeader field="vencimento" label="Vencimento" />
                   <th className="text-left p-3 text-muted-foreground font-medium">Valor</th>
                   <th className="text-left p-3 text-muted-foreground font-medium">Status</th>
-                  <th className="text-left p-3 text-muted-foreground font-medium">Data</th>
+                  <SortHeader field="criado_em" label="Data" />
                   <th className="text-left p-3 text-muted-foreground font-medium">Ações</th>
                 </tr>
               </thead>

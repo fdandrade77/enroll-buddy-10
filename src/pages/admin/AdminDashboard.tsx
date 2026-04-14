@@ -193,28 +193,10 @@ export default function AdminDashboard() {
     await fetchData();
   };
 
-  // Despesas — auto-inserir padrão
+  // Despesas — NÃO auto-inserir despesas globais (tráfego/FATEB), somente despesas específicas do aluno
   const openDespesasModal = async (m: any) => {
-    const despesasExistentes = despesas.filter(d => d.matricula_id === m.id);
-
-    if (despesasExistentes.length === 0) {
-      const vendedor = vendedores.find(v => v.id === m.vendedor_id);
-      const inserts: any[] = [];
-
-      if (vendedor?.despesa_trafego_padrao > 0) {
-        inserts.push({ matricula_id: m.id, tipo: 'trafego', descricao: 'Tráfego pago (padrão)', valor: vendedor.despesa_trafego_padrao });
-      }
-      if (vendedor?.despesa_fateb_padrao > 0) {
-        inserts.push({ matricula_id: m.id, tipo: 'taxa_fateb', descricao: 'Taxa FATEB (padrão)', valor: vendedor.despesa_fateb_padrao });
-      }
-      if (inserts.length > 0) {
-        await supabase.from('despesas_matricula').insert(inserts as any);
-        await fetchData();
-      }
-    }
-
     setDespesasModal(m);
-    setNovaDespesa({ tipo: 'trafego', descricao: '', valor: '' });
+    setNovaDespesa({ tipo: 'outro', descricao: '', valor: '' });
   };
 
   const addDespesa = async () => {
@@ -241,35 +223,35 @@ export default function AdminDashboard() {
   const comissaoPorVendedor = vendedores.map((v) => {
     const ms = filteredVendedores.filter((m) => m.vendedor_id === v.id);
     const total = ms.reduce((s, m) => s + Number(m.valor_total), 0);
-    const totalDesp = ms.reduce((s, m) => {
+    
+    // Despesas específicas por aluno (do modal de despesas)
+    const despesasEspecificas = ms.reduce((s, m) => {
       return s + despesas
         .filter(d => d.matricula_id === m.id)
         .reduce((sd, d) => sd + Number(d.valor), 0);
     }, 0);
 
+    // Despesas globais do vendedor (tráfego + FATEB)
+    const despesaTrafego = Number(v.despesa_trafego_padrao ?? 0);
+    const despesaFateb = Number(v.despesa_fateb_padrao ?? 0);
+    const totalDespGlobal = despesaTrafego + despesaFateb;
+    const totalDesp = despesasEspecificas + totalDespGlobal;
+
     const modelo = (v as any).modelo_comissao ?? 'fixo';
 
-    let aPagarDia17 = 0;
+    // Comissão bruta baseada em parcelas pagas (status=pago das matriculas ou parcelas de comissão pagas)
+    let comissaoBruta = 0;
     if (modelo === 'fixo') {
-      // For fixed: sum of comissão for pending (nao_pago) enrollments
-      const comissaoBruta = ms.reduce((s, m) => s + (m.cursos?.comissao_primeira_parcela ?? 0), 0);
-      aPagarDia17 = comissaoBruta - totalDesp;
+      // Para fixo: comissão das matrículas pagas
+      comissaoBruta = ms.filter(m => m.status === 'pago').reduce((s, m) => s + (m.cursos?.comissao_primeira_parcela ?? 0), 0);
     } else {
-      // For parcelado: sum of pending parcels minus expenses
+      // Para parcelado: soma das parcelas de comissão pagas
       const vParcelas = comissoesParcelas.filter(p => ms.some(m => m.id === p.matricula_id));
-      const pendentes = vParcelas.filter(p => p.status === 'pendente');
-      // Monthly: next batch of pending parcels (one per matricula)
-      const parcelasMensal = pendentes.reduce((s, p) => s + Number(p.valor_comissao), 0);
-      // Pick only the next pending parcela per matricula for the monthly amount
-      const nextParcelas = new Map<string, number>();
-      pendentes.forEach(p => {
-        if (!nextParcelas.has(p.matricula_id)) {
-          nextParcelas.set(p.matricula_id, Number(p.valor_comissao));
-        }
-      });
-      const mensal = Array.from(nextParcelas.values()).reduce((s, v) => s + v, 0);
-      aPagarDia17 = mensal - totalDesp;
+      const pagas = vParcelas.filter(p => p.status === 'pago');
+      comissaoBruta = pagas.reduce((s, p) => s + Number(p.valor_comissao), 0);
     }
+
+    const aPagarDia17 = comissaoBruta - totalDesp;
 
     return {
       nome: v.profiles?.nome ?? v.codigo_ref,
@@ -277,8 +259,12 @@ export default function AdminDashboard() {
       count: ms.length,
       modelo,
       percentual: (v as any).comissao_percentual ?? 15,
-      despesas: totalDesp,
-      aPagarDia17: Math.max(0, aPagarDia17),
+      despesasEspecificas,
+      despesaTrafego,
+      despesaFateb,
+      totalDesp,
+      comissaoBruta,
+      aPagarDia17,
     };
   }).filter((v) => v.count > 0);
 
@@ -467,8 +453,9 @@ export default function AdminDashboard() {
                 <th className="text-left p-3 text-muted-foreground font-medium">Modelo</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">Matrículas</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">Total Vendas</th>
+                <th className="text-left p-3 text-muted-foreground font-medium">Comissão Paga</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">Despesas</th>
-                <th className="text-left p-3 text-muted-foreground font-medium">A Pagar dia 17</th>
+                <th className="text-left p-3 text-muted-foreground font-medium">Líquido dia 17</th>
               </tr>
             </thead>
             <tbody>
@@ -484,8 +471,16 @@ export default function AdminDashboard() {
                   </td>
                   <td className="p-3 text-foreground">{v.count}</td>
                   <td className="p-3 text-foreground">R$ {v.total.toFixed(2)}</td>
-                  <td className="p-3 text-destructive">-R$ {v.despesas.toFixed(2)}</td>
-                  <td className="p-3 font-bold text-success">R$ {v.aPagarDia17.toFixed(2)}</td>
+                  <td className="p-3 text-foreground font-medium">R$ {v.comissaoBruta.toFixed(2)}</td>
+                  <td className="p-3">
+                    <div className="flex flex-col">
+                      <span className="text-destructive font-medium">-R$ {v.totalDesp.toFixed(2)}</span>
+                      {v.despesaTrafego > 0 && <span className="text-xs text-muted-foreground">Tráfego: R$ {v.despesaTrafego.toFixed(2)}</span>}
+                      {v.despesaFateb > 0 && <span className="text-xs text-muted-foreground">FATEB: R$ {v.despesaFateb.toFixed(2)}</span>}
+                      {v.despesasEspecificas > 0 && <span className="text-xs text-muted-foreground">Específicas: R$ {v.despesasEspecificas.toFixed(2)}</span>}
+                    </div>
+                  </td>
+                  <td className={`p-3 font-bold ${v.aPagarDia17 >= 0 ? 'text-success' : 'text-destructive'}`}>R$ {v.aPagarDia17.toFixed(2)}</td>
                 </tr>
               ))}
             </tbody>
