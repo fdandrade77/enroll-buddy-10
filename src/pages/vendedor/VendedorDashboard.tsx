@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { StatCard } from "@/components/StatCard";
-import { FileText, CheckCircle, XCircle, DollarSign, Copy, Link, ChevronDown, ChevronUp, TrendingUp } from "lucide-react";
+import { FileText, CheckCircle, XCircle, DollarSign, Copy, Link, ChevronDown, ChevronUp, TrendingUp, MinusCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ export default function VendedorDashboard() {
   const [matriculas, setMatriculas] = useState<any[]>([]);
   const [cursos, setCursos] = useState<any[]>([]);
   const [comissoesParcelas, setComissoesParcelas] = useState<any[]>([]);
+  const [despesas, setDespesas] = useState<any[]>([]);
   const [filtroCurso, setFiltroCurso] = useState("all");
   const [filtroStatus, setFiltroStatus] = useState("all");
   const [dataInicio, setDataInicio] = useState("");
@@ -33,7 +34,7 @@ export default function VendedorDashboard() {
       setVendedor(vData);
 
       if (vData) {
-        const [mRes, cpRes] = await Promise.all([
+        const [mRes, cpRes, dRes] = await Promise.all([
           supabase
             .from("matriculas")
             .select("*, cursos(nome, comissao_primeira_parcela, valor_total, max_parcelas)")
@@ -43,9 +44,15 @@ export default function VendedorDashboard() {
             .from("comissoes_parcelas")
             .select("*")
             .eq("vendedor_id", vData.id),
+          supabase
+            .from("despesas_matricula")
+            .select("*"),
         ]);
         setMatriculas(mRes.data ?? []);
         setComissoesParcelas(cpRes.data ?? []);
+        // Filter despesas to only this vendor's matriculas
+        const matriculaIds = new Set((mRes.data ?? []).map((m: any) => m.id));
+        setDespesas((dRes.data ?? []).filter((d: any) => matriculaIds.has(d.matricula_id)));
       }
 
       const { data: cData } = await supabase.from("cursos").select("*").eq("ativo", true);
@@ -109,6 +116,12 @@ export default function VendedorDashboard() {
   }, 0);
   const comissaoAReceber = comissaoTotal - comissaoRecebida;
 
+  // Despesas totais do vendedor (tráfego padrão + FATEB padrão + despesas específicas)
+  const despesaTrafego = vendedor?.despesa_trafego_padrao ?? 0;
+  const despesaFateb = vendedor?.despesa_fateb_padrao ?? 0;
+  const despesasEspecificas = despesas.reduce((s, d) => s + Number(d.valor), 0);
+  const totalDespesas = despesaTrafego + despesaFateb + despesasEspecificas;
+
   const link = vendedor ? `${window.location.origin}/r/${vendedor.codigo_ref}` : "";
 
   const exportCSV = () => {
@@ -144,8 +157,8 @@ export default function VendedorDashboard() {
         <StatCard title="Comissão Total" value={`R$ ${comissaoTotal.toFixed(2)}`} icon={DollarSign} variant="warning" />
       </div>
 
-      {/* Sub-cards: Já recebido / A receber / Mensal */}
-      <div className={`grid grid-cols-1 ${modelo === 'parcelado' ? 'md:grid-cols-3' : 'md:grid-cols-2'} gap-4`}>
+      {/* Sub-cards: Já recebido / A receber / Mensal / Despesas */}
+      <div className={`grid grid-cols-1 ${modelo === 'parcelado' ? 'md:grid-cols-4' : 'md:grid-cols-3'} gap-4`}>
         <div className="bg-success/10 border border-success/20 rounded-xl p-4 flex items-center justify-between">
           <div>
             <p className="text-xs text-muted-foreground">Já Recebido</p>
@@ -169,6 +182,18 @@ export default function VendedorDashboard() {
             <TrendingUp className="h-8 w-8 text-blue-500/40" />
           </div>
         )}
+        <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-4 flex items-center justify-between">
+          <div>
+            <p className="text-xs text-muted-foreground">Despesas (Descontos)</p>
+            <p className="text-xl font-bold text-destructive">R$ {totalDespesas.toFixed(2)}</p>
+            <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+              {despesaTrafego > 0 && <p>Tráfego: R$ {despesaTrafego.toFixed(2)}</p>}
+              {despesaFateb > 0 && <p>FATEB: R$ {despesaFateb.toFixed(2)}</p>}
+              {despesasEspecificas > 0 && <p>Específicas: R$ {despesasEspecificas.toFixed(2)}</p>}
+            </div>
+          </div>
+          <MinusCircle className="h-8 w-8 text-destructive/40" />
+        </div>
       </div>
 
       {/* Gerar Link */}
