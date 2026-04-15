@@ -1,21 +1,22 @@
 
 
-## Correcoes: Comissao Fixa + Valor Mensal
+## Correcao: Remover despesas do vendedor fixo
 
-### Alteracao 1 — AdminDashboard.tsx (Comissao fixa)
+### Problema
 
-No calculo de `comissaoBruta` para modelo `fixo`, remover o filtro `.filter(m => m.status === 'pago')`. Vendedores fixos recebem comissao por toda matricula, independente do status do aluno.
+No calculo do "Fechamento dia 17", vendedores com modelo **fixo** estao tendo despesas de trafego e FATEB descontadas da comissao. O usuario confirmou que vendedores fixos **nao tem essas despesas** — apenas vendedores de comissao parcelada.
 
-### Alteracao 2 — VendedorDashboard.tsx (Valor Mensal)
+### Alteracao
 
-No `calcMensal()`, filtrar parcelas pendentes para incluir apenas as de matriculas com `status === 'pago'`. Assim o card "Valor Mensal" mostra apenas o que sera efetivamente pago no dia 17 — a soma de 15% (ou percentual configurado) da proxima parcela pendente de cada aluno que esta em dia.
+**Arquivo**: `src/pages/admin/AdminDashboard.tsx` (linhas 234-238)
 
-**Exemplo real**: Vendedora com 4 alunos pagos, curso de R$ 1.200 em 12x. Parcela = R$ 100, comissao = 15% = R$ 15/aluno. Valor Mensal = 4 x R$ 15 = R$ 60.
+Condicionar as despesas globais (trafego + FATEB) ao modelo parcelado. Para modelo fixo, zerar essas despesas:
 
-### Arquivos alterados
+```typescript
+// Despesas globais só para modelo parcelado
+const despesaTrafego = modelo === 'fixo' ? 0 : Number(v.despesa_trafego_padrao ?? 0);
+const despesaFateb = modelo === 'fixo' ? 0 : Number(v.despesa_fateb_padrao ?? 0);
+```
 
-| Arquivo | Mudanca |
-|---|---|
-| `src/pages/admin/AdminDashboard.tsx` | Remover filtro `status === 'pago'` no calculo de comissao fixa |
-| `src/pages/vendedor/VendedorDashboard.tsx` | Filtrar `calcMensal()` para so incluir parcelas de matriculas pagas |
+Isso garante que vendedores fixos mostrem apenas despesas específicas de matricula (se houver), sem desconto de trafego/FATEB.
 
