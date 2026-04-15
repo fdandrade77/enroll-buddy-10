@@ -308,7 +308,47 @@ export default function AdminDashboard() {
   const comissaoBrutaModal = despesasModal ? calcComissao(despesasModal) : 0;
   const comissaoLiquidaModal = comissaoBrutaModal - despesasTotal;
 
-  const renderMatriculaTable = (items: any[], title: string, icon: any) => (
+  const toggleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDir(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDir('asc');
+    }
+  };
+
+  const sortItems = (items: any[]) => {
+    if (!sortField) return items;
+    return [...items].sort((a, b) => {
+      let valA: any, valB: any;
+      switch (sortField) {
+        case 'nome': valA = a.nome_completo?.toLowerCase() ?? ''; valB = b.nome_completo?.toLowerCase() ?? ''; break;
+        case 'vendedor': valA = (a.vendedores?.profiles?.nome ?? a.vendedores?.codigo_ref ?? '').toLowerCase(); valB = (b.vendedores?.profiles?.nome ?? b.vendedores?.codigo_ref ?? '').toLowerCase(); break;
+        case 'vencimento': valA = a.data_vencimento ?? ''; valB = b.data_vencimento ?? ''; break;
+        case 'status': valA = a.status ?? ''; valB = b.status ?? ''; break;
+        default: return 0;
+      }
+      if (valA < valB) return sortDir === 'asc' ? -1 : 1;
+      if (valA > valB) return sortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+  };
+
+  const SortHeader = ({ field, children }: { field: string; children: React.ReactNode }) => (
+    <th
+      className="text-left p-3 text-muted-foreground font-medium cursor-pointer select-none hover:text-foreground transition-colors"
+      onClick={() => toggleSort(field)}
+    >
+      <span className="inline-flex items-center gap-1">
+        {children}
+        <ArrowUpDown className={`h-3 w-3 ${sortField === field ? 'text-foreground' : 'text-muted-foreground/50'}`} />
+      </span>
+    </th>
+  );
+
+  const renderMatriculaTable = (items: any[], title: string, icon: any) => {
+    const sorted = sortItems(items);
+    return (
     <div className="bg-card border border-border rounded-xl overflow-hidden">
       <div className="p-4 border-b border-border flex items-center gap-2">
         {icon}
@@ -319,15 +359,15 @@ export default function AdminDashboard() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/50">
-              <th className="text-left p-3 text-muted-foreground font-medium">Nome</th>
+              <SortHeader field="nome">Nome</SortHeader>
               <th className="text-left p-3 text-muted-foreground font-medium">Curso</th>
-              <th className="text-left p-3 text-muted-foreground font-medium">{title === "Matrículas por Indicação" ? "Indicador" : "Vendedor"}</th>
+              <SortHeader field="vendedor">{title === "Matrículas por Indicação" ? "Indicador" : "Vendedor"}</SortHeader>
               <th className="text-left p-3 text-muted-foreground font-medium">Tipo Pgto</th>
               <th className="text-left p-3 text-muted-foreground font-medium">Parcelas</th>
-              <th className="text-left p-3 text-muted-foreground font-medium">Vencimento</th>
+              <SortHeader field="vencimento">Vencimento</SortHeader>
               <th className="text-left p-3 text-muted-foreground font-medium">Valor</th>
               <th className="text-left p-3 text-muted-foreground font-medium">Comissão</th>
-              <th className="text-left p-3 text-muted-foreground font-medium">Status</th>
+              <SortHeader field="status">Status</SortHeader>
               <th className="text-left p-3 text-muted-foreground font-medium">Ações</th>
             </tr>
           </thead>
