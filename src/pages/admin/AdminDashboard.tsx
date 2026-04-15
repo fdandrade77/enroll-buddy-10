@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { StatCard } from "@/components/StatCard";
-import { FileText, CheckCircle, XCircle, DollarSign, TrendingUp, ClipboardList, Receipt, Trash2, Users, UserCheck } from "lucide-react";
+import { FileText, CheckCircle, XCircle, DollarSign, TrendingUp, ClipboardList, Receipt, Trash2, Users, UserCheck, ArrowUpDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
