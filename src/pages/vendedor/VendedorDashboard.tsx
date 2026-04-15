@@ -85,13 +85,14 @@ export default function VendedorDashboard() {
     return (valorParcela * percentual / 100) * qtd;
   };
 
-  // Mensal: next pending parcela per matricula
+  // Mensal: next pending parcela per matricula (only from paid enrollments)
   const calcMensal = (): number => {
     if (modelo === 'fixo') return 0;
+    const matriculasPagas = new Set(matriculas.filter(m => m.status === 'pago').map(m => m.id));
     let mensal = 0;
     const seen = new Set<string>();
     const sorted = [...comissoesParcelas]
-      .filter(p => p.status === 'pendente')
+      .filter(p => p.status === 'pendente' && matriculasPagas.has(p.matricula_id))
       .sort((a, b) => a.numero_parcela - b.numero_parcela);
     for (const p of sorted) {
       if (!seen.has(p.matricula_id)) {
