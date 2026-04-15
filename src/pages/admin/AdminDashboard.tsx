@@ -30,6 +30,8 @@ export default function AdminDashboard() {
   const [dataInicio, setDataInicio] = useState("");
   const [dataFim, setDataFim] = useState("");
   const [showResults, setShowResults] = useState(false);
+  const [sortField, setSortField] = useState<string>("");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
   // Modals
   const [parcelasModal, setParcelasModal] = useState<any>(null);
@@ -171,6 +173,24 @@ export default function AdminDashboard() {
       toast.error("Erro ao gerar parcelas: " + error.message);
       return;
     }
+
+    // Auto-inserir despesa de R$ 10 na primeira parcela (apenas modelo parcelado)
+    const { data: despExistente } = await supabase
+      .from("despesas_matricula")
+      .select("id")
+      .eq("matricula_id", m.id)
+      .eq("tipo", "taxa_primeira_parcela")
+      .maybeSingle();
+
+    if (!despExistente) {
+      await supabase.from("despesas_matricula").insert({
+        matricula_id: m.id,
+        tipo: "taxa_primeira_parcela",
+        descricao: "Taxa primeira parcela",
+        valor: 10,
+      } as any);
+    }
+
     toast.success(`${qtd} parcelas de comissão geradas`);
     await fetchData();
   };
@@ -190,6 +210,12 @@ export default function AdminDashboard() {
     else update.data_pagamento = null;
 
     await supabase.from("comissoes_parcelas").update(update).eq("id", parcelaId);
+
+    // Se marcou como pago, atualizar matrícula para "pago" também
+    if (newStatus === 'pago' && parcelasModal) {
+      await supabase.from("matriculas").update({ status: "pago" as any }).eq("id", parcelasModal.id);
+    }
+
     await fetchData();
   };
 
