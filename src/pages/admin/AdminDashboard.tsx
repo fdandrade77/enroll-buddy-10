@@ -372,7 +372,7 @@ export default function AdminDashboard() {
             </tr>
           </thead>
           <tbody>
-            {items.map((m) => {
+            {sorted.map((m) => {
               const modelo = m.vendedores?.modelo_comissao ?? 'fixo';
               const mDespesas = despesas.filter((d) => d.matricula_id === m.id);
               const totalDesp = mDespesas.reduce((s: number, d: any) => s + Number(d.valor), 0);
@@ -432,7 +432,8 @@ export default function AdminDashboard() {
         </table>
       </div>
     </div>
-  );
+    );
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
