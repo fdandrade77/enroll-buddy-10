@@ -231,9 +231,10 @@ export default function AdminDashboard() {
         .reduce((sd, d) => sd + Number(d.valor), 0);
     }, 0);
 
-    // Despesas globais do vendedor (tráfego + FATEB)
-    const despesaTrafego = Number(v.despesa_trafego_padrao ?? 0);
-    const despesaFateb = Number(v.despesa_fateb_padrao ?? 0);
+    // Despesas globais do vendedor (tráfego + FATEB) — só para modelo parcelado
+    const modelo = (v as any).modelo_comissao ?? 'fixo';
+    const despesaTrafego = modelo === 'fixo' ? 0 : Number(v.despesa_trafego_padrao ?? 0);
+    const despesaFateb = modelo === 'fixo' ? 0 : Number(v.despesa_fateb_padrao ?? 0);
     const totalDespGlobal = despesaTrafego + despesaFateb;
     const totalDesp = despesasEspecificas + totalDespGlobal;
 
