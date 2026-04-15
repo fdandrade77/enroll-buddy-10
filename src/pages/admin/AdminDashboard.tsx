@@ -242,8 +242,8 @@ export default function AdminDashboard() {
     // Comissão bruta baseada em parcelas pagas (status=pago das matriculas ou parcelas de comissão pagas)
     let comissaoBruta = 0;
     if (modelo === 'fixo') {
-      // Para fixo: comissão das matrículas pagas
-      comissaoBruta = ms.filter(m => m.status === 'pago').reduce((s, m) => s + (m.cursos?.comissao_primeira_parcela ?? 0), 0);
+      // Para fixo: comissão paga por toda matrícula, independente do status do aluno
+      comissaoBruta = ms.reduce((s, m) => s + (m.cursos?.comissao_primeira_parcela ?? 0), 0);
     } else {
       // Para parcelado: soma das parcelas de comissão pagas
       const vParcelas = comissoesParcelas.filter(p => ms.some(m => m.id === p.matricula_id));
