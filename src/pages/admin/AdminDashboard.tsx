@@ -238,7 +238,6 @@ export default function AdminDashboard() {
     const totalDespGlobal = despesaTrafego + despesaFateb;
     const totalDesp = despesasEspecificas + totalDespGlobal;
 
-    const modelo = (v as any).modelo_comissao ?? 'fixo';
 
     // Comissão bruta baseada em parcelas pagas (status=pago das matriculas ou parcelas de comissão pagas)
     let comissaoBruta = 0;
