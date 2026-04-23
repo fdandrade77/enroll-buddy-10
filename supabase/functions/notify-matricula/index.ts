@@ -26,16 +26,38 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     const resendFrom = Deno.env.get("RESEND_FROM_EMAIL");
-    const adminEmail = Deno.env.get("ADMIN_EMAIL");
+    const adminEmailFallback = Deno.env.get("ADMIN_EMAIL");
 
-    if (!resendApiKey || !resendFrom || !adminEmail) {
-      console.error("Missing RESEND_API_KEY, RESEND_FROM_EMAIL, or ADMIN_EMAIL");
+    if (!resendApiKey || !resendFrom) {
+      console.error("Missing RESEND_API_KEY or RESEND_FROM_EMAIL");
       return new Response(JSON.stringify({ ok: false, error: "missing env vars" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+    // Read recipient(s) from configuracoes table; fallback to ADMIN_EMAIL secret
+    let recipientsRaw = "";
+    const { data: cfg } = await supabase
+      .from("configuracoes")
+      .select("valor")
+      .eq("chave", "notification_email")
+      .maybeSingle();
+    if (cfg?.valor) recipientsRaw = cfg.valor;
+    if (!recipientsRaw && adminEmailFallback) recipientsRaw = adminEmailFallback;
+
+    const recipients = recipientsRaw
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+
+    if (recipients.length === 0) {
+      console.error("No notification recipient configured");
+      return new Response(JSON.stringify({ ok: false, error: "no recipient" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Fetch curso name
     let cursoNome = "—";
@@ -114,7 +136,7 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         from: resendFrom,
-        to: [adminEmail],
+        to: recipients,
         subject: `Nova Matrícula: ${record.nome_completo}`,
         html: htmlBody,
       }),

@@ -1,0 +1,1 @@
+INSERT INTO public.configuracoes (chave, valor) VALUES ('notification_email', '') ON CONFLICT (chave) DO NOTHING;
