@@ -259,6 +259,27 @@ export default function AdminConfig() {
           <Button onClick={salvarCashback}>Salvar</Button>
         </div>
       </div>
+
+      {/* Notification email config */}
+      <div className="bg-card border border-border rounded-xl p-6 space-y-4">
+        <h2 className="text-lg font-semibold text-foreground">Notificações por E-mail</h2>
+        <p className="text-sm text-muted-foreground">
+          Este endereço receberá um e-mail sempre que uma nova matrícula for cadastrada.
+          Para múltiplos destinatários, separe por vírgula (ex: <code>admin@x.com, financeiro@x.com</code>).
+        </p>
+        <div className="space-y-2">
+          <Label>E-mail(s) para notificação</Label>
+          <Input
+            type="text"
+            value={notificationEmail}
+            onChange={(e) => setNotificationEmail(e.target.value)}
+            placeholder="admin@exemplo.com"
+          />
+        </div>
+        <Button onClick={salvarNotificationEmail} disabled={savingNotifEmail}>
+          {savingNotifEmail ? "Salvando..." : "Salvar"}
+        </Button>
+      </div>
     </div>
   );
 }
