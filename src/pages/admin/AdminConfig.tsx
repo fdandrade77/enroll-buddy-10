@@ -30,6 +30,10 @@ export default function AdminConfig() {
   // Cashback config
   const [valorCashback, setValorCashback] = useState("50.00");
 
+  // Notification email config
+  const [notificationEmail, setNotificationEmail] = useState("");
+  const [savingNotifEmail, setSavingNotifEmail] = useState(false);
+
   const fetchAdmins = async () => {
     const { data } = await supabase
       .from("user_roles")
@@ -51,7 +55,27 @@ export default function AdminConfig() {
     if (data) setValorCashback(data.valor);
   };
 
-  useEffect(() => { fetchAdmins(); fetchCashbackConfig(); }, []);
+  const fetchNotificationEmail = async () => {
+    const { data } = await supabase.from("configuracoes").select("valor").eq("chave", "notification_email").maybeSingle();
+    if (data) setNotificationEmail(data.valor ?? "");
+  };
+
+  useEffect(() => { fetchAdmins(); fetchCashbackConfig(); fetchNotificationEmail(); }, []);
+
+  const salvarNotificationEmail = async () => {
+    const value = notificationEmail.trim();
+    if (!value) { toast.error("Informe ao menos um e-mail"); return; }
+    const emails = value.split(",").map((e) => e.trim()).filter(Boolean);
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const invalid = emails.filter((e) => !re.test(e));
+    if (invalid.length > 0) { toast.error(`E-mail(s) inválido(s): ${invalid.join(", ")}`); return; }
+    setSavingNotifEmail(true);
+    const { error } = await supabase.from("configuracoes").upsert({ chave: "notification_email", valor: emails.join(", ") } as any);
+    setSavingNotifEmail(false);
+    if (error) { toast.error("Erro ao salvar"); return; }
+    toast.success("E-mail de notificação atualizado!");
+  };
+
 
   const handleUpdateEmail = async () => {
     if (!newEmail) { toast.error("Informe o novo e-mail"); return; }
