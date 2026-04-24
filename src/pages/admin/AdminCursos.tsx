@@ -225,6 +225,17 @@ export default function AdminCursos() {
                 <Input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} />
               </div>
               <div className="space-y-2">
+                <Label>Apelido para o link (opcional)</Label>
+                <Input
+                  value={form.slug}
+                  onChange={(e) => setForm({ ...form, slug: e.target.value })}
+                  placeholder="ex: psicologia-clinica"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Usado no link enviado ao aluno: /r/&#123;vendedor&#125;/<span className="font-mono">{slugify(form.slug || form.nome) || "apelido"}</span>. Se vazio, será gerado a partir do nome.
+                </p>
+              </div>
+              <div className="space-y-2">
                 <Label>Valor Total (R$)</Label>
                 <Input type="number" step="0.01" min="0.01" value={form.valor_total} onChange={(e) => setForm({ ...form, valor_total: e.target.value })} />
               </div>
