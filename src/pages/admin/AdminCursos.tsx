@@ -10,6 +10,7 @@ import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, Upload, FileText, Image,
 interface CursoRow {
   id: string;
   nome: string;
+  slug: string;
   valor_total: number;
   max_parcelas: number;
   comissao_primeira_parcela: number;
@@ -50,7 +51,7 @@ export default function AdminCursos() {
   const [cursos, setCursos] = useState<CursoRow[]>([]);
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ nome: "", valor_total: "", max_parcelas: "", comissao_primeira_parcela: "" });
+  const [form, setForm] = useState({ nome: "", slug: "", valor_total: "", max_parcelas: "", comissao_primeira_parcela: "" });
   const [materiaisOpen, setMateriaisOpen] = useState<string | null>(null);
   const [materiais, setMateriais] = useState<MaterialRow[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -68,14 +69,29 @@ export default function AdminCursos() {
     setMateriais(data as MaterialRow[] ?? []);
   };
 
+  const slugify = (s: string) =>
+    s
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+
   const handleSave = async () => {
     if (!form.nome || !form.valor_total || !form.max_parcelas || !form.comissao_primeira_parcela) {
       toast.error("Preencha todos os campos");
       return;
     }
 
+    const finalSlug = slugify(form.slug || form.nome);
+    if (!finalSlug) {
+      toast.error("Apelido do curso inválido");
+      return;
+    }
+
     const payload = {
       nome: form.nome,
+      slug: finalSlug,
       valor_total: parseFloat(form.valor_total),
       max_parcelas: parseInt(form.max_parcelas),
       comissao_primeira_parcela: parseFloat(form.comissao_primeira_parcela),
@@ -111,7 +127,7 @@ export default function AdminCursos() {
 
   const openCreate = () => {
     setEditingId(null);
-    setForm({ nome: "", valor_total: "", max_parcelas: "", comissao_primeira_parcela: "" });
+    setForm({ nome: "", slug: "", valor_total: "", max_parcelas: "", comissao_primeira_parcela: "" });
     setOpen(true);
   };
 
@@ -119,6 +135,7 @@ export default function AdminCursos() {
     setEditingId(c.id);
     setForm({
       nome: c.nome,
+      slug: c.slug ?? "",
       valor_total: c.valor_total.toString(),
       max_parcelas: c.max_parcelas.toString(),
       comissao_primeira_parcela: c.comissao_primeira_parcela.toString(),

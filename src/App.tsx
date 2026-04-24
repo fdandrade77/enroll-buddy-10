@@ -33,6 +33,7 @@ const App = () => (
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="/login" element={<Login />} />
             <Route path="/r/:codigo" element={<PublicMatricula />} />
+            <Route path="/r/:codigo/:cursoSlug" element={<PublicMatricula />} />
             <Route path="/i/:slug" element={<PublicIndicacao />} />
 
             <Route path="/admin" element={<ProtectedRoute requiredRole="admin"><AdminLayout /></ProtectedRoute>}>
