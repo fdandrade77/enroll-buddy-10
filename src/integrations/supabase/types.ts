@@ -177,6 +177,7 @@ export type Database = {
           id: string
           max_parcelas: number
           nome: string
+          slug: string
           valor_total: number
         }
         Insert: {
@@ -186,6 +187,7 @@ export type Database = {
           id?: string
           max_parcelas: number
           nome: string
+          slug: string
           valor_total: number
         }
         Update: {
@@ -195,6 +197,7 @@ export type Database = {
           id?: string
           max_parcelas?: number
           nome?: string
+          slug?: string
           valor_total?: number
         }
         Relationships: []
@@ -447,6 +450,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      slugify: { Args: { input: string }; Returns: string }
     }
     Enums: {
       app_role: "admin" | "vendedor"
