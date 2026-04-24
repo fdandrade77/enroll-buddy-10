@@ -6,7 +6,7 @@ import { CheckCircle } from "lucide-react";
 import logo from "@/assets/logo.webp";
 
 export default function PublicMatricula() {
-  const { codigo } = useParams<{ codigo: string }>();
+  const { codigo, cursoSlug } = useParams<{ codigo: string; cursoSlug?: string }>();
   const [searchParams] = useSearchParams();
   const preselectedCurso = searchParams.get("curso_id");
 
@@ -16,6 +16,8 @@ export default function PublicMatricula() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+
+  const [resolvedCursoId, setResolvedCursoId] = useState<string>("");
 
   const [form, setForm] = useState({
     nome_completo: "",
@@ -42,10 +44,21 @@ export default function PublicMatricula() {
 
       const { data: cData } = await supabase.from("cursos").select("*").eq("ativo", true);
       setCursos(cData ?? []);
+
+      // Resolve curso by slug from URL (takes precedence over ?curso_id=)
+      if (cursoSlug && cData) {
+        const found = cData.find((c: any) => c.slug === cursoSlug);
+        if (found) {
+          setResolvedCursoId(found.id);
+          setForm((f) => ({ ...f, curso_id: found.id }));
+        }
+      }
       setLoading(false);
     };
     fetchData();
-  }, [codigo]);
+  }, [codigo, cursoSlug]);
+
+  const cursoLocked = !!(preselectedCurso || resolvedCursoId);
 
   const selectedCurso = cursos.find((c) => c.id === form.curso_id);
 
@@ -187,7 +200,7 @@ export default function PublicMatricula() {
           </div>
 
           {/* Curso selector (if not preselected) */}
-          {!preselectedCurso && (
+          {!cursoLocked && (
             <div>
               <label className={labelClass}>Curso:</label>
               <select className={selectClass} value={form.curso_id} onChange={(e) => setForm({ ...form, curso_id: e.target.value })} required>
