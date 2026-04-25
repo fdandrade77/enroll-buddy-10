@@ -218,14 +218,23 @@ export default function VendedorDashboard() {
           <div className="flex-1">
             <Input
               readOnly
-              value={linkCurso !== "all" ? `${link}?curso_id=${linkCurso}` : link}
+              value={(() => {
+                if (linkCurso === "all") return link;
+                const c: any = cursos.find((x: any) => x.id === linkCurso);
+                if (c?.slug) return `${link}/${c.slug}`;
+                return `${link}?curso_id=${linkCurso}`;
+              })()}
               className="bg-muted"
             />
           </div>
           <Button
             variant="outline"
             onClick={() => {
-              const url = linkCurso !== "all" ? `${link}?curso_id=${linkCurso}` : link;
+              let url = link;
+              if (linkCurso !== "all") {
+                const c: any = cursos.find((x: any) => x.id === linkCurso);
+                url = c?.slug ? `${link}/${c.slug}` : `${link}?curso_id=${linkCurso}`;
+              }
               navigator.clipboard.writeText(url);
               toast.success("Link copiado!");
             }}
