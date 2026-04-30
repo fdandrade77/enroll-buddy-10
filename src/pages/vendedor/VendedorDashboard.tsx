@@ -202,46 +202,92 @@ export default function VendedorDashboard() {
         <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
           <Link className="h-5 w-5" /> Gerar Link de Matrícula
         </h2>
-        <div className="flex flex-col md:flex-row gap-3 items-end">
-          <div className="flex-1">
-            <label className="text-xs text-muted-foreground">Curso (opcional)</label>
-            <Select value={linkCurso} onValueChange={setLinkCurso}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Geral</SelectItem>
-                {cursos.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        <p className="text-sm text-muted-foreground mb-4">
+          Selecione o curso para gerar seu link personalizado de venda.
+        </p>
+        {(() => {
+          const selected: any = linkCurso !== "all" ? cursos.find((x: any) => x.id === linkCurso) : null;
+          const hasSlug = !!selected?.slug;
+          const finalUrl = hasSlug ? `${link}/${selected.slug}` : "";
+          return (
+            <>
+              <div className="flex flex-col md:flex-row gap-3 items-end">
+                <div className="flex-1">
+                  <label className="text-xs text-muted-foreground">Curso</label>
+                  <Select value={linkCurso} onValueChange={setLinkCurso}>
+                    <SelectTrigger><SelectValue placeholder="Selecione um curso" /></SelectTrigger>
+                    <SelectContent>
+                      {cursos.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex-1">
+                  <Input
+                    readOnly
+                    value={finalUrl}
+                    placeholder="O link aparecerá aqui após selecionar o curso"
+                    className="bg-muted"
+                  />
+                </div>
+                <Button
+                  variant="outline"
+                  disabled={!hasSlug}
+                  onClick={() => {
+                    if (!hasSlug) return;
+                    navigator.clipboard.writeText(finalUrl);
+                    toast.success("Link copiado!");
+                  }}
+                >
+                  <Copy className="h-4 w-4 mr-2" /> Copiar
+                </Button>
+              </div>
+              {linkCurso !== "all" && !hasSlug && (
+                <p className="text-xs text-destructive mt-2">
+                  Este curso não tem apelido para link configurado. Peça ao administrador para definir um.
+                </p>
+              )}
+            </>
+          );
+        })()}
+      </div>
+
+      {/* Lista rápida: todos os links por curso */}
+      <div className="bg-card border border-border rounded-xl p-6">
+        <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+          <Link className="h-5 w-5" /> Meus Links por Curso
+        </h2>
+        {cursos.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Nenhum curso ativo no momento.</p>
+        ) : (
+          <div className="space-y-2">
+            {cursos.map((c: any) => {
+              const url = c.slug ? `${link}/${c.slug}` : "";
+              return (
+                <div key={c.id} className="flex items-center gap-3 bg-muted/40 rounded-lg p-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">{c.nome}</p>
+                    <p className="text-xs text-muted-foreground truncate font-mono">
+                      {url || "Sem apelido configurado"}
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={!url}
+                    onClick={() => {
+                      navigator.clipboard.writeText(url);
+                      toast.success(`Link de "${c.nome}" copiado!`);
+                    }}
+                  >
+                    <Copy className="h-4 w-4 mr-1" /> Copiar
+                  </Button>
+                </div>
+              );
+            })}
           </div>
-          <div className="flex-1">
-            <Input
-              readOnly
-              value={(() => {
-                if (linkCurso === "all") return link;
-                const c: any = cursos.find((x: any) => x.id === linkCurso);
-                if (c?.slug) return `${link}/${c.slug}`;
-                return `${link}?curso_id=${linkCurso}`;
-              })()}
-              className="bg-muted"
-            />
-          </div>
-          <Button
-            variant="outline"
-            onClick={() => {
-              let url = link;
-              if (linkCurso !== "all") {
-                const c: any = cursos.find((x: any) => x.id === linkCurso);
-                url = c?.slug ? `${link}/${c.slug}` : `${link}?curso_id=${linkCurso}`;
-              }
-              navigator.clipboard.writeText(url);
-              toast.success("Link copiado!");
-            }}
-          >
-            <Copy className="h-4 w-4 mr-2" /> Copiar
-          </Button>
-        </div>
+        )}
       </div>
 
       {/* Filters */}
