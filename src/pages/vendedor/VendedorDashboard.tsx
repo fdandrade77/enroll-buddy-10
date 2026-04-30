@@ -162,6 +162,12 @@ export default function VendedorDashboard() {
       .sort((a, b) => a.numero_parcela - b.numero_parcela);
   };
 
+  const getRowDespesas = (matriculaId: string) =>
+    despesas.filter((d) => d.matricula_id === matriculaId);
+
+  const getIndicador = (indicadorId?: string | null) =>
+    indicadorId ? indicadores.find((i) => i.id === indicadorId) : null;
+
   return (
     <div className="space-y-6 animate-fade-in">
       <h1 className="text-2xl font-bold text-foreground">Meu Dashboard</h1>
