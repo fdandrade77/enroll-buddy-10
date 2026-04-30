@@ -363,10 +363,14 @@ export default function VendedorDashboard() {
               <tr className="border-b border-border bg-muted/50">
                 <th className="text-left p-3 text-muted-foreground font-medium">Nome</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">CPF</th>
+                <th className="text-left p-3 text-muted-foreground font-medium">Email</th>
+                <th className="text-left p-3 text-muted-foreground font-medium">WhatsApp</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">Curso</th>
+                <th className="text-left p-3 text-muted-foreground font-medium">Valor total</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">Tipo Pgto</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">Parcelas</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">Vencimento</th>
+                <th className="text-left p-3 text-muted-foreground font-medium">Indicador</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">Comissão</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">Status</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">Data</th>
@@ -377,24 +381,41 @@ export default function VendedorDashboard() {
                 const rowParcelas = getRowParcelas(m.id);
                 const pagas = rowParcelas.filter(p => p.status === 'pago').length;
                 const isExpanded = expandedRow === m.id;
+                const rowDespesas = getRowDespesas(m.id);
+                const ind = getIndicador(m.indicador_id);
+                const totalDespesasMat = rowDespesas.reduce((s, d) => s + Number(d.valor), 0);
+                const comissaoMat = calcComissao(m);
+                const liquido = Number(m.valor_total) - totalDespesasMat - comissaoMat;
                 return (
                   <>
                     <tr key={m.id} className="border-b border-border hover:bg-muted/30 transition-colors">
-                      <td className="p-3 text-foreground">{m.nome_completo}</td>
-                      <td className="p-3 text-foreground">{m.cpf}</td>
+                      <td className="p-3 text-foreground whitespace-nowrap">{m.nome_completo}</td>
+                      <td className="p-3 text-foreground whitespace-nowrap">{m.cpf}</td>
+                      <td className="p-3 text-foreground whitespace-nowrap">{m.email}</td>
+                      <td className="p-3 text-foreground whitespace-nowrap">{m.whatsapp}</td>
                       <td className="p-3 text-foreground">{m.cursos?.nome}</td>
-                      <td className="p-3 text-foreground">{m.tipo_pagamento === "a_vista" ? "À vista" : "Parcelado"}</td>
+                      <td className="p-3 text-foreground whitespace-nowrap">R$ {Number(m.valor_total).toFixed(2)}</td>
+                      <td className="p-3 text-foreground whitespace-nowrap">{m.tipo_pagamento === "a_vista" ? "À vista" : "Parcelado"}</td>
                       <td className="p-3 text-foreground">{m.quantidade_parcelas ?? "-"}</td>
-                      <td className="p-3 text-foreground">{m.data_vencimento}</td>
+                      <td className="p-3 text-foreground whitespace-nowrap">{m.data_vencimento}</td>
+                      <td className="p-3 text-foreground whitespace-nowrap">{ind?.nome ?? "-"}</td>
                       <td className="p-3 text-foreground">
                         <div className="flex items-center gap-1">
-                          <span className="font-medium">R$ {calcComissao(m).toFixed(2)}</span>
+                          <span className="font-medium">R$ {comissaoMat.toFixed(2)}</span>
                           {rowParcelas.length > 0 && (
                             <button
                               className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-0.5"
                               onClick={() => setExpandedRow(isExpanded ? null : m.id)}
                             >
                               ({pagas}/{rowParcelas.length})
+                              {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                            </button>
+                          )}
+                          {rowParcelas.length === 0 && (
+                            <button
+                              className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-0.5"
+                              onClick={() => setExpandedRow(isExpanded ? null : m.id)}
+                            >
                               {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                             </button>
                           )}
@@ -407,34 +428,85 @@ export default function VendedorDashboard() {
                           {m.status === "pago" ? "Pago" : "Não pago"}
                         </span>
                       </td>
-                      <td className="p-3 text-foreground">{new Date(m.criado_em).toLocaleDateString("pt-BR")}</td>
+                      <td className="p-3 text-foreground whitespace-nowrap">{new Date(m.criado_em).toLocaleDateString("pt-BR")}</td>
                     </tr>
-                    {isExpanded && rowParcelas.length > 0 && (
+                    {isExpanded && (
                       <tr key={`${m.id}-expanded`} className="bg-muted/20">
-                        <td colSpan={9} className="p-3">
-                          <div className="flex flex-wrap gap-2">
-                            {rowParcelas.map((p) => (
-                              <div
-                                key={p.id}
-                                className={`px-3 py-1.5 rounded-full text-xs font-medium ${
-                                  p.status === 'pago'
-                                    ? 'bg-success/20 text-success'
-                                    : 'bg-muted text-muted-foreground'
-                                }`}
-                              >
-                                P{p.numero_parcela}: R$ {Number(p.valor_comissao).toFixed(2)}
-                                {p.status === 'pago' && p.data_pagamento && (
-                                  <span className="ml-1 opacity-70">
-                                    ({new Date(p.data_pagamento + 'T12:00:00').toLocaleDateString('pt-BR')})
-                                  </span>
-                                )}
-                                {p.status !== 'pago' && p.data_prevista && (
-                                  <span className="ml-1 opacity-70">
-                                    (prev. {new Date(p.data_prevista + 'T12:00:00').toLocaleDateString('pt-BR')})
-                                  </span>
-                                )}
+                        <td colSpan={13} className="p-4 space-y-4">
+                          {rowParcelas.length > 0 && (
+                            <div>
+                              <div className="text-xs font-semibold text-muted-foreground mb-2">Parcelas de comissão</div>
+                              <div className="flex flex-wrap gap-2">
+                                {rowParcelas.map((p) => (
+                                  <div
+                                    key={p.id}
+                                    className={`px-3 py-1.5 rounded-full text-xs font-medium ${
+                                      p.status === 'pago'
+                                        ? 'bg-success/20 text-success'
+                                        : 'bg-muted text-muted-foreground'
+                                    }`}
+                                  >
+                                    P{p.numero_parcela}: R$ {Number(p.valor_comissao).toFixed(2)}
+                                    {p.status === 'pago' && p.data_pagamento && (
+                                      <span className="ml-1 opacity-70">
+                                        ({new Date(p.data_pagamento + 'T12:00:00').toLocaleDateString('pt-BR')})
+                                      </span>
+                                    )}
+                                    {p.status !== 'pago' && p.data_prevista && (
+                                      <span className="ml-1 opacity-70">
+                                        (prev. {new Date(p.data_prevista + 'T12:00:00').toLocaleDateString('pt-BR')})
+                                      </span>
+                                    )}
+                                  </div>
+                                ))}
                               </div>
-                            ))}
+                            </div>
+                          )}
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <div className="text-xs font-semibold text-muted-foreground mb-2">Detalhes da matrícula</div>
+                              <ul className="text-xs text-foreground space-y-1">
+                                <li><span className="text-muted-foreground">ID:</span> {m.id.slice(-8)}</li>
+                                <li><span className="text-muted-foreground">Email:</span> {m.email}</li>
+                                <li><span className="text-muted-foreground">WhatsApp:</span> {m.whatsapp}</li>
+                                <li><span className="text-muted-foreground">Indicador:</span> {ind?.nome ?? "—"}</li>
+                                <li><span className="text-muted-foreground">Valor total:</span> R$ {Number(m.valor_total).toFixed(2)}</li>
+                              </ul>
+                            </div>
+                            <div>
+                              <div className="text-xs font-semibold text-muted-foreground mb-2">Despesas da matrícula</div>
+                              {rowDespesas.length === 0 ? (
+                                <div className="text-xs text-muted-foreground">Nenhuma despesa registrada.</div>
+                              ) : (
+                                <ul className="text-xs text-foreground space-y-1">
+                                  {rowDespesas.map((d) => (
+                                    <li key={d.id} className="flex justify-between gap-3">
+                                      <span>{d.tipo}{d.descricao ? ` — ${d.descricao}` : ""}</span>
+                                      <span className="font-medium">R$ {Number(d.valor).toFixed(2)}</span>
+                                    </li>
+                                  ))}
+                                  <li className="flex justify-between gap-3 pt-1 border-t border-border">
+                                    <span className="text-muted-foreground">Total despesas</span>
+                                    <span className="font-semibold">R$ {totalDespesasMat.toFixed(2)}</span>
+                                  </li>
+                                </ul>
+                              )}
+                              <div className="mt-3 text-xs grid grid-cols-3 gap-2">
+                                <div className="bg-muted/40 rounded px-2 py-1">
+                                  <div className="text-muted-foreground">Valor</div>
+                                  <div className="font-medium">R$ {Number(m.valor_total).toFixed(2)}</div>
+                                </div>
+                                <div className="bg-muted/40 rounded px-2 py-1">
+                                  <div className="text-muted-foreground">Comissão</div>
+                                  <div className="font-medium">R$ {comissaoMat.toFixed(2)}</div>
+                                </div>
+                                <div className="bg-muted/40 rounded px-2 py-1">
+                                  <div className="text-muted-foreground">Líquido</div>
+                                  <div className="font-medium">R$ {liquido.toFixed(2)}</div>
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         </td>
                       </tr>
@@ -443,7 +515,7 @@ export default function VendedorDashboard() {
                 );
               })}
               {filtered.length === 0 && (
-                <tr><td colSpan={9} className="p-8 text-center text-muted-foreground">Nenhuma matrícula encontrada</td></tr>
+                <tr><td colSpan={13} className="p-8 text-center text-muted-foreground">Nenhuma matrícula encontrada</td></tr>
               )}
             </tbody>
           </table>
