@@ -1,56 +1,49 @@
-## Objetivo
+# Mostrar todas as informações da matrícula na lista de alunos do vendedor
 
-Garantir que o link gerado pelo vendedor seja **sempre** no formato `/r/{codigo_ref}/{slug-do-curso}`, eliminando qualquer chance de aparecer o formato antigo `?curso_id=...` e tornando o fluxo do Dashboard idêntico ao da tela "Meus Cursos".
+## Onde
+A "lista de alunos" do vendedor é a tabela de matrículas em `src/pages/vendedor/VendedorDashboard.tsx` (atualmente mostra apenas: Nome, CPF, Curso, Tipo Pgto, Parcelas, Vencimento, Comissão, Status, Data).
 
-## Situação atual (verificada no código)
-
-- `VendedorDashboard.tsx` (linhas 221-243): já constrói `/r/{codigo_ref}/{slug}` quando há slug — mas tem fallback para `?curso_id={id}` se o curso não tiver slug.
-- `VendedorCursos.tsx`: já lista todos os cursos com link individual `/r/{codigo_ref}/{slug}` e botão Copiar — funciona corretamente.
-- Banco: todos os 5 cursos ativos têm slug preenchido, então o fallback nunca dispara hoje. Mas qualquer curso novo cadastrado sem slug quebraria o padrão.
+## O que falta
+Hoje vários campos da matrícula não aparecem (Email, WhatsApp, Valor total, Indicador, etc.) e os custos da matrícula (despesas) também não.
 
 ## Mudanças propostas
 
-### 1. `VendedorDashboard.tsx` — Reforçar o gerador de link
+### 1. Tabela principal — adicionar todas as colunas da matrícula
+Adicionar/garantir as seguintes colunas (todas vêm de `matriculas` + joins já feitos):
 
-- **Tornar o curso obrigatório**: trocar a opção "Geral" por um placeholder "Selecione um curso" — o vendedor precisa escolher um curso antes do link aparecer.
-- **Remover o fallback `?curso_id=`**: se um curso (improvável) não tiver slug, mostrar aviso "Este curso não tem apelido para link configurado — peça ao admin" em vez de gerar URL antiga.
-- **Mostrar preview claro**: o input fica vazio até o vendedor escolher um curso; ao escolher, mostra `https://matriculafatebead.com.br/r/fernando/neuropsicanalise`.
-- **Botão Copiar desabilitado** até ter um link válido.
+- Nome completo
+- CPF
+- Email
+- WhatsApp
+- Curso
+- Valor total (R$ — `valor_total` da matrícula, snapshot)
+- Tipo de pagamento (À vista / Parcelado)
+- Qtd. parcelas
+- Data de vencimento
+- Status (Pago / Não pago)
+- Comissão total (com expansão de parcelas, como já existe)
+- Data da matrícula (criado_em)
 
-### 2. `VendedorDashboard.tsx` — Adicionar lista rápida de links por curso
+Como ficam muitas colunas, manter o `overflow-x-auto` que já existe e usar `whitespace-nowrap` nas células-chave para não quebrar layout em telas menores.
 
-Logo abaixo do gerador, adicionar uma seção "Meus links por curso" listando **todos os cursos ativos** com:
-- Nome do curso
-- Link pronto: `/r/{codigo_ref}/{slug}`
-- Botão "Copiar" individual em cada linha
+### 2. Linha expandida — mostrar detalhes extras
+Ao clicar para expandir uma matrícula (já existe o expand das parcelas de comissão), além das parcelas mostrar um bloco "Detalhes da matrícula" com:
 
-Assim o vendedor não precisa nem usar o dropdown — vê todos os links de uma vez (mesmo comportamento da tela "Meus Cursos", trazido para o Dashboard).
+- ID da matrícula (curto, últimos 8 chars)
+- Indicador (se houver) — buscar nome via `indicadores` (novo fetch leve filtrando pelos `indicador_id` presentes)
+- Despesas da matrícula (`despesas_matricula` já carregadas) — listar tipo, descrição e valor
+- Total de despesas da matrícula
+- Resumo financeiro: Valor total – Total despesas – Comissão = Líquido (apenas informativo p/ o vendedor)
 
-### 3. `VendedorCursos.tsx` — Sem mudanças
+### 3. Exportação CSV
+Atualizar o `exportCSV` para incluir todas as novas colunas (Email, WhatsApp, Valor total, Indicador) mantendo o nome do arquivo `minhas-matriculas.csv`.
 
-Já está correto. Apenas confirmar visualmente que os links gerados batem com os do Dashboard.
+### 4. Sem mudanças de banco
+Todos os dados já existem em `matriculas`, `cursos`, `comissoes_parcelas`, `despesas_matricula`. A única consulta nova é `indicadores` (apenas leitura, sem alteração de schema/RLS — já é público para `ativo = true` e podemos buscar só os necessários).
 
-### 4. Validação no Admin (`AdminCursos.tsx`)
+## Arquivo a editar
+- `src/pages/vendedor/VendedorDashboard.tsx`
 
-Tornar o campo "Apelido para o link" (slug) **obrigatório** ao criar/editar curso, com geração automática a partir do nome se ficar em branco. Garante que nenhum curso futuro fique sem slug e quebre o padrão.
-
-## Resultado final
-
-Para o Fernando:
-- `https://matriculafatebead.com.br/r/fernando/neuropsicanalise`
-- `https://matriculafatebead.com.br/r/fernando/terapeuta-completo`
-- `https://matriculafatebead.com.br/r/fernando/constelacao-familiar`
-
-Para a Silvana:
-- `https://matriculafatebead.com.br/r/silvana/neuropsicanalise`
-- `https://matriculafatebead.com.br/r/silvana/terapeuta-completo`
-- (etc., um link por curso ativo)
-
-O formato `?curso_id=...` deixa de existir no sistema.
-
-## Arquivos afetados
-
-- `src/pages/vendedor/VendedorDashboard.tsx` — gerador refeito + lista por curso
-- `src/pages/admin/AdminCursos.tsx` — slug obrigatório com auto-geração
-
-Sem mudanças no banco, sem mudanças em RLS, sem mudanças em Edge Functions.
+## Fora de escopo
+- Permitir o vendedor editar matrículas (continua somente leitura, conforme regra atual).
+- Mudar permissões/RLS.
