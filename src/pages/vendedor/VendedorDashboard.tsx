@@ -141,11 +141,12 @@ export default function VendedorDashboard() {
   const link = vendedor ? `${window.location.origin}/r/${vendedor.codigo_ref}` : "";
 
   const exportCSV = () => {
-    const headers = ["Nome", "CPF", "Email", "WhatsApp", "Curso", "Tipo Pgto", "Parcelas", "Vencimento", "Status", "Valor", "Data"];
+    const headers = ["Nome", "CPF", "Email", "WhatsApp", "Curso", "Valor", "Tipo Pgto", "Parcelas", "Vencimento", "Indicador", "Comissão", "Status", "Data"];
     const rows = filtered.map((m) => [
       m.nome_completo, m.cpf, m.email, m.whatsapp,
-      m.cursos?.nome ?? "", m.tipo_pagamento, m.quantidade_parcelas ?? "",
-      m.data_vencimento, m.status, m.valor_total,
+      m.cursos?.nome ?? "", m.valor_total, m.tipo_pagamento, m.quantidade_parcelas ?? "",
+      m.data_vencimento, getIndicador(m.indicador_id)?.nome ?? "",
+      calcComissao(m).toFixed(2), m.status,
       new Date(m.criado_em).toLocaleDateString("pt-BR"),
     ]);
     const csv = [headers, ...rows].map((r) => r.join(";")).join("\n");
