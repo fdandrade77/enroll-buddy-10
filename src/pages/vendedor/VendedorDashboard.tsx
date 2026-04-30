@@ -15,6 +15,7 @@ export default function VendedorDashboard() {
   const [cursos, setCursos] = useState<any[]>([]);
   const [comissoesParcelas, setComissoesParcelas] = useState<any[]>([]);
   const [despesas, setDespesas] = useState<any[]>([]);
+  const [indicadores, setIndicadores] = useState<any[]>([]);
   const [filtroCurso, setFiltroCurso] = useState("all");
   const [filtroStatus, setFiltroStatus] = useState("all");
   const [dataInicio, setDataInicio] = useState("");
@@ -53,6 +54,20 @@ export default function VendedorDashboard() {
         // Filter despesas to only this vendor's matriculas
         const matriculaIds = new Set((mRes.data ?? []).map((m: any) => m.id));
         setDespesas((dRes.data ?? []).filter((d: any) => matriculaIds.has(d.matricula_id)));
+
+        // Load indicadores referenced by these matriculas (for showing affiliate name)
+        const indicadorIds = Array.from(
+          new Set((mRes.data ?? []).map((m: any) => m.indicador_id).filter(Boolean))
+        );
+        if (indicadorIds.length > 0) {
+          const { data: iData } = await supabase
+            .from("indicadores")
+            .select("id, nome, slug")
+            .in("id", indicadorIds);
+          setIndicadores(iData ?? []);
+        } else {
+          setIndicadores([]);
+        }
       }
 
       const { data: cData } = await supabase.from("cursos").select("*").eq("ativo", true);
