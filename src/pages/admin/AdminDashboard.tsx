@@ -15,7 +15,8 @@ function calcComissao(m: any): number {
   if (modelo === 'fixo') {
     return m.cursos?.comissao_primeira_parcela ?? 0;
   }
-  return m._comissaoParcelada ?? 0;
+  // Parcelado: mostrar somente comissão referente às parcelas já pagas
+  return m._comissaoPaga ?? 0;
 }
 
 export default function AdminDashboard() {
@@ -32,6 +33,7 @@ export default function AdminDashboard() {
   const [showResults, setShowResults] = useState(false);
   const [sortField, setSortField] = useState<string>("");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [trafegoMes, setTrafegoMes] = useState<Record<string, string>>({});
 
   // Modals
   const [parcelasModal, setParcelasModal] = useState<any>(null);
@@ -56,6 +58,7 @@ export default function AdminDashboard() {
       return {
         ...m,
         _comissaoParcelada: mParcelas.reduce((s: number, p: any) => s + Number(p.valor_comissao), 0),
+        _comissaoPaga: mParcelas.filter((p: any) => p.status === 'pago').reduce((s: number, p: any) => s + Number(p.valor_comissao), 0),
         _parcelasCount: mParcelas.length,
         _parcelasPagas: mParcelas.filter((p: any) => p.status === 'pago').length,
       };
