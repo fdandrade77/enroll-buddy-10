@@ -443,6 +443,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_indicador_public: {
+        Args: { _slug: string }
+        Returns: {
+          id: string
+          nome: string
+        }[]
+      }
+      get_vendedor_public: {
+        Args: { _codigo: string }
+        Returns: {
+          id: string
+          nome: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
