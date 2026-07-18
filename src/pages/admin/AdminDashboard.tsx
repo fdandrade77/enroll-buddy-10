@@ -15,7 +15,8 @@ function calcComissao(m: any): number {
   if (modelo === 'fixo') {
     return m.cursos?.comissao_primeira_parcela ?? 0;
   }
-  return m._comissaoParcelada ?? 0;
+  // Parcelado: mostrar somente comissão referente às parcelas já pagas
+  return m._comissaoPaga ?? 0;
 }
 
 export default function AdminDashboard() {
@@ -32,6 +33,7 @@ export default function AdminDashboard() {
   const [showResults, setShowResults] = useState(false);
   const [sortField, setSortField] = useState<string>("");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [trafegoMes, setTrafegoMes] = useState<Record<string, string>>({});
 
   // Modals
   const [parcelasModal, setParcelasModal] = useState<any>(null);
@@ -56,6 +58,7 @@ export default function AdminDashboard() {
       return {
         ...m,
         _comissaoParcelada: mParcelas.reduce((s: number, p: any) => s + Number(p.valor_comissao), 0),
+        _comissaoPaga: mParcelas.filter((p: any) => p.status === 'pago').reduce((s: number, p: any) => s + Number(p.valor_comissao), 0),
         _parcelasCount: mParcelas.length,
         _parcelasPagas: mParcelas.filter((p: any) => p.status === 'pago').length,
       };
@@ -267,19 +270,24 @@ export default function AdminDashboard() {
 
     // Comissão bruta baseada em parcelas pagas (status=pago das matriculas ou parcelas de comissão pagas)
     let comissaoBruta = 0;
+    let comissaoTotalGerada = 0;
     if (modelo === 'fixo') {
       // Para fixo: comissão paga por toda matrícula, independente do status do aluno
       comissaoBruta = ms.reduce((s, m) => s + (m.cursos?.comissao_primeira_parcela ?? 0), 0);
+      comissaoTotalGerada = comissaoBruta;
     } else {
       // Para parcelado: soma das parcelas de comissão pagas
       const vParcelas = comissoesParcelas.filter(p => ms.some(m => m.id === p.matricula_id));
       const pagas = vParcelas.filter(p => p.status === 'pago');
       comissaoBruta = pagas.reduce((s, p) => s + Number(p.valor_comissao), 0);
+      comissaoTotalGerada = vParcelas.reduce((s, p) => s + Number(p.valor_comissao), 0);
     }
 
-    const aPagarDia17 = comissaoBruta - totalDesp;
+    const trafego = parseFloat(trafegoMes[v.id] || '0') || 0;
+    const aPagarDia17 = comissaoBruta - totalDesp - trafego;
 
     return {
+      id: v.id,
       nome: v.profiles?.nome ?? v.codigo_ref,
       total,
       count: ms.length,
@@ -290,6 +298,8 @@ export default function AdminDashboard() {
       despesaFateb,
       totalDesp,
       comissaoBruta,
+      comissaoTotalGerada,
+      trafego,
       aPagarDia17,
     };
   }).filter((v) => v.count > 0);
@@ -519,9 +529,10 @@ export default function AdminDashboard() {
                 <th className="text-left p-3 text-muted-foreground font-medium">Vendedor</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">Modelo</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">Matrículas</th>
-                <th className="text-left p-3 text-muted-foreground font-medium">Total Vendas</th>
+                <th className="text-left p-3 text-muted-foreground font-medium">Comissão Total</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">Comissão Paga</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">Despesas</th>
+                <th className="text-left p-3 text-muted-foreground font-medium">Tráfego do mês</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">Líquido dia 17</th>
               </tr>
             </thead>
@@ -537,7 +548,12 @@ export default function AdminDashboard() {
                     </span>
                   </td>
                   <td className="p-3 text-foreground">{v.count}</td>
-                  <td className="p-3 text-foreground">R$ {v.total.toFixed(2)}</td>
+                  <td className="p-3 text-foreground">
+                    <div className="flex flex-col">
+                      <span className="font-medium">R$ {v.comissaoTotalGerada.toFixed(2)}</span>
+                      <span className="text-xs text-muted-foreground">Vendas: R$ {v.total.toFixed(2)}</span>
+                    </div>
+                  </td>
                   <td className="p-3 text-foreground font-medium">R$ {v.comissaoBruta.toFixed(2)}</td>
                   <td className="p-3">
                     <div className="flex flex-col">
@@ -546,6 +562,17 @@ export default function AdminDashboard() {
                       {v.despesaFateb > 0 && <span className="text-xs text-muted-foreground">FATEB: R$ {v.despesaFateb.toFixed(2)}</span>}
                       {v.despesasEspecificas > 0 && <span className="text-xs text-muted-foreground">Específicas: R$ {v.despesasEspecificas.toFixed(2)}</span>}
                     </div>
+                  </td>
+                  <td className="p-3">
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="R$ 0,00"
+                      className="h-8 w-28"
+                      value={trafegoMes[v.id] ?? ''}
+                      onChange={(e) => setTrafegoMes({ ...trafegoMes, [v.id]: e.target.value })}
+                    />
                   </td>
                   <td className={`p-3 font-bold ${v.aPagarDia17 >= 0 ? 'text-success' : 'text-destructive'}`}>R$ {v.aPagarDia17.toFixed(2)}</td>
                 </tr>
