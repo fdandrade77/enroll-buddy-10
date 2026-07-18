@@ -529,9 +529,10 @@ export default function AdminDashboard() {
                 <th className="text-left p-3 text-muted-foreground font-medium">Vendedor</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">Modelo</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">Matrículas</th>
-                <th className="text-left p-3 text-muted-foreground font-medium">Total Vendas</th>
+                <th className="text-left p-3 text-muted-foreground font-medium">Comissão Total</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">Comissão Paga</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">Despesas</th>
+                <th className="text-left p-3 text-muted-foreground font-medium">Tráfego do mês</th>
                 <th className="text-left p-3 text-muted-foreground font-medium">Líquido dia 17</th>
               </tr>
             </thead>
@@ -547,7 +548,12 @@ export default function AdminDashboard() {
                     </span>
                   </td>
                   <td className="p-3 text-foreground">{v.count}</td>
-                  <td className="p-3 text-foreground">R$ {v.total.toFixed(2)}</td>
+                  <td className="p-3 text-foreground">
+                    <div className="flex flex-col">
+                      <span className="font-medium">R$ {v.comissaoTotalGerada.toFixed(2)}</span>
+                      <span className="text-xs text-muted-foreground">Vendas: R$ {v.total.toFixed(2)}</span>
+                    </div>
+                  </td>
                   <td className="p-3 text-foreground font-medium">R$ {v.comissaoBruta.toFixed(2)}</td>
                   <td className="p-3">
                     <div className="flex flex-col">
@@ -556,6 +562,17 @@ export default function AdminDashboard() {
                       {v.despesaFateb > 0 && <span className="text-xs text-muted-foreground">FATEB: R$ {v.despesaFateb.toFixed(2)}</span>}
                       {v.despesasEspecificas > 0 && <span className="text-xs text-muted-foreground">Específicas: R$ {v.despesasEspecificas.toFixed(2)}</span>}
                     </div>
+                  </td>
+                  <td className="p-3">
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="R$ 0,00"
+                      className="h-8 w-28"
+                      value={trafegoMes[v.id] ?? ''}
+                      onChange={(e) => setTrafegoMes({ ...trafegoMes, [v.id]: e.target.value })}
+                    />
                   </td>
                   <td className={`p-3 font-bold ${v.aPagarDia17 >= 0 ? 'text-success' : 'text-destructive'}`}>R$ {v.aPagarDia17.toFixed(2)}</td>
                 </tr>
