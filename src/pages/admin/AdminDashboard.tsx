@@ -138,14 +138,40 @@ export default function AdminDashboard() {
   };
 
   const exportCSV = () => {
-    const headers = ["Nome", "CPF", "Email", "WhatsApp", "Curso", "Tipo Pgto", "Parcelas", "Vencimento", "Status", "Valor", "Comissão", "Origem", "Data"];
-    const rows = filtered.map((m) => [
-      m.nome_completo, m.cpf, m.email, m.whatsapp,
-      m.cursos?.nome ?? "", m.tipo_pagamento, m.quantidade_parcelas ?? "",
-      m.data_vencimento, m.status, m.valor_total, calcComissao(m).toFixed(2),
-      m.indicador_id ? "Indicação" : "Vendedor",
-      new Date(m.criado_em).toLocaleDateString("pt-BR"),
-    ]);
+    const headers = ["Nome", "Número da parcela paga", "Valor da parcela paga", "Desconto"];
+    const rows: (string | number)[][] = [];
+    filtered.forEach((m) => {
+      const parcelas = comissoesParcelas
+        .filter((p) => p.matricula_id === m.id && p.status === "pago")
+        .sort((a, b) => a.numero_parcela - b.numero_parcela);
+
+      const qtd = m.quantidade_parcelas ?? m.cursos?.max_parcelas ?? 1;
+      const valorOriginal = Number(m.cursos?.valor_total ?? m.valor_total);
+      const valorCobrado = Number(m.valor_total);
+      const descontoParcela =
+        valorOriginal > valorCobrado ? (valorOriginal - valorCobrado) / qtd : 0;
+
+      if (m.tipo_pagamento === "a_vista") {
+        if (m.status === "pago") {
+          rows.push([
+            m.nome_completo,
+            1,
+            Number(m.valor_total).toFixed(2),
+            descontoParcela > 0 ? descontoParcela.toFixed(2) : "",
+          ]);
+        }
+      } else {
+        parcelas.forEach((p) => {
+          rows.push([
+            m.nome_completo,
+            p.numero_parcela,
+            Number(p.valor_parcela_curso).toFixed(2),
+            descontoParcela > 0 ? descontoParcela.toFixed(2) : "",
+          ]);
+        });
+      }
+    });
+
     const csv = [headers, ...rows].map((r) => r.join(";")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
