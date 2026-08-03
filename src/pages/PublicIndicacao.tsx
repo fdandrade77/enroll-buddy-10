@@ -27,12 +27,11 @@ export default function PublicIndicacao() {
 
   useEffect(() => {
     const fetchData = async () => {
-      const { data: iData } = await supabase
-        .from("indicadores")
-        .select("*")
-        .eq("slug", slug)
-        .eq("ativo", true)
-        .single();
+      const { data: iRows } = await supabase.rpc("get_indicador_public", {
+        _slug: slug as string,
+      });
+
+      const iData = Array.isArray(iRows) ? iRows[0] : iRows;
 
       if (!iData) { setLoading(false); return; }
       setIndicador(iData);
