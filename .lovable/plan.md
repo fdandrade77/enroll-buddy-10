@@ -1,49 +1,51 @@
-# Mostrar todas as informações da matrícula na lista de alunos do vendedor
+# Corrigir página pública de inscrição que ora carrega, ora dá erro
 
-## Onde
-A "lista de alunos" do vendedor é a tabela de matrículas em `src/pages/vendedor/VendedorDashboard.tsx` (atualmente mostra apenas: Nome, CPF, Curso, Tipo Pgto, Parcelas, Vencimento, Comissão, Status, Data).
+## Diagnóstico (confirmado no banco)
 
-## O que falta
-Hoje vários campos da matrícula não aparecem (Email, WhatsApp, Valor total, Indicador, etc.) e os custos da matrícula (despesas) também não.
+O comportamento intermitente tem uma causa clara: **depende de quem está logado no navegador**.
 
-## Mudanças propostas
+Nas correções de segurança recentes, as políticas de leitura pública das tabelas `vendedores`, `profiles` e `indicadores` foram removidas (dados sensíveis como CPF/PIX estavam expostos). No lugar delas foram criadas duas funções seguras que devolvem apenas `id` e `nome`:
 
-### 1. Tabela principal — adicionar todas as colunas da matrícula
-Adicionar/garantir as seguintes colunas (todas vêm de `matriculas` + joins já feitos):
+- `get_vendedor_public(codigo)`
+- `get_indicador_public(slug)`
 
-- Nome completo
-- CPF
-- Email
-- WhatsApp
-- Curso
-- Valor total (R$ — `valor_total` da matrícula, snapshot)
-- Tipo de pagamento (À vista / Parcelado)
-- Qtd. parcelas
-- Data de vencimento
-- Status (Pago / Não pago)
-- Comissão total (com expansão de parcelas, como já existe)
-- Data da matrícula (criado_em)
+Porém as páginas públicas **não foram migradas** para usar essas funções — elas ainda fazem consulta direta:
 
-Como ficam muitas colunas, manter o `overflow-x-auto` que já existe e usar `whitespace-nowrap` nas células-chave para não quebrar layout em telas menores.
+- `src/pages/PublicMatricula.tsx`: `from("vendedores").select("*, profiles:user_id(nome)")`
+- `src/pages/PublicIndicacao.tsx`: `from("indicadores").select("*")`
 
-### 2. Linha expandida — mostrar detalhes extras
-Ao clicar para expandir uma matrícula (já existe o expand das parcelas de comissão), além das parcelas mostrar um bloco "Detalhes da matrícula" com:
+Políticas atuais confirmadas no banco:
+- `vendedores` SELECT: só admin, ou o próprio vendedor (`auth.uid() = user_id`)
+- `indicadores`: só admin
+- `profiles`: só admin ou o próprio usuário
+- `cursos` SELECT: público (por isso os cursos aparecem, mas o vendedor não)
 
-- ID da matrícula (curto, últimos 8 chars)
-- Indicador (se houver) — buscar nome via `indicadores` (novo fetch leve filtrando pelos `indicador_id` presentes)
-- Despesas da matrícula (`despesas_matricula` já carregadas) — listar tipo, descrição e valor
-- Total de despesas da matrícula
-- Resumo financeiro: Valor total – Total despesas – Comissão = Líquido (apenas informativo p/ o vendedor)
+Resultado:
 
-### 3. Exportação CSV
-Atualizar o `exportCSV` para incluir todas as novas colunas (Email, WhatsApp, Valor total, Indicador) mantendo o nome do arquivo `minhas-matriculas.csv`.
+```text
+Visitante anônimo (aluno)              -> bloqueado -> "Link inválido ou vendedor não encontrado"
+Admin logado no mesmo navegador        -> permitido -> página carrega normalmente
+Vendedor logado abrindo o próprio link -> carrega
+Vendedor logado abrindo link de outro  -> erro
+```
 
-### 4. Sem mudanças de banco
-Todos os dados já existem em `matriculas`, `cursos`, `comissoes_parcelas`, `despesas_matricula`. A única consulta nova é `indicadores` (apenas leitura, sem alteração de schema/RLS — já é público para `ativo = true` e podemos buscar só os necessários).
+Ou seja: quando você testa logado, funciona; quando o aluno abre (ou você abre em aba anônima), dá erro. Não é instabilidade de rede nem da hospedagem.
 
-## Arquivo a editar
-- `src/pages/vendedor/VendedorDashboard.tsx`
+## Correção
 
-## Fora de escopo
-- Permitir o vendedor editar matrículas (continua somente leitura, conforme regra atual).
-- Mudar permissões/RLS.
+1. `src/pages/PublicMatricula.tsx`
+   - Trocar a consulta direta em `vendedores` por `supabase.rpc("get_vendedor_public", { _codigo: codigo })`.
+   - Usar `id` e `nome` retornados para preencher o vendedor e o texto "Consultor".
+   - Manter a busca de `cursos` como está (leitura pública já permitida).
+   - Em caso de erro/sem resultado, manter a mensagem de link inválido.
+
+2. `src/pages/PublicIndicacao.tsx`
+   - Trocar a consulta direta em `indicadores` por `supabase.rpc("get_indicador_public", { _slug: slug })`.
+   - Usar `id` no insert da matrícula e `nome` no texto "Você foi indicado por".
+
+3. Verificação
+   - Abrir `/r/{codigo}/{slug-do-curso}` sem sessão e confirmar que o formulário carrega com o nome do consultor e o curso.
+   - Repetir para um link `/i/{slug}` de indicador.
+   - Enviar uma matrícula de teste anônima para confirmar que o insert continua funcionando.
+
+Nenhuma alteração de banco é necessária — as funções seguras já existem e já têm permissão de execução para visitantes anônimos.
