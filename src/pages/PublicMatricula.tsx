@@ -32,15 +32,15 @@ export default function PublicMatricula() {
 
   useEffect(() => {
     const fetchData = async () => {
-      const { data: vData } = await supabase
-        .from("vendedores")
-        .select("*, profiles:user_id(nome)")
-        .eq("codigo_ref", codigo)
-        .single();
+      const { data: vRows } = await supabase.rpc("get_vendedor_public", {
+        _codigo: codigo as string,
+      });
+
+      const vData = Array.isArray(vRows) ? vRows[0] : vRows;
 
       if (!vData) { setLoading(false); return; }
       setVendedor(vData);
-      setVendedorNome((vData as any).profiles?.nome ?? "");
+      setVendedorNome((vData as any).nome ?? "");
 
       const { data: cData } = await supabase.from("cursos").select("*").eq("ativo", true);
       setCursos(cData ?? []);
