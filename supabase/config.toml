@@ -5,3 +5,7 @@ project_id = "jjxjuqtdaphmoscntzqc"
     verify_jwt = false
   [functions.notify-matricula]
     verify_jwt = false
+  [functions.preview-transactional-email]
+    verify_jwt = false
+  [functions.handle-email-events]
+    verify_jwt = false
