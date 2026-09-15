@@ -26,18 +26,20 @@ export const RecoveryEmail = ({
     <Head>
       <style>{darkModeCss}</style>
     </Head>
-    <Preview>Redefina sua senha do {siteName}</Preview>
+    <Preview>Redefina sua senha da {siteName}</Preview>
     <Body style={main}>
       <Container style={container}>
         <Heading style={h1}>Redefina sua senha</Heading>
         <Text style={text}>
-          Recebemos uma solicitação para redefinir sua senha do {siteName}. Clique no botão abaixo para criar uma nova senha.
+          Recebemos uma solicitação para redefinir sua senha da {siteName}.
+          Clique no botão abaixo para escolher uma nova senha.
         </Text>
         <Button className="dm-btn" style={button} href={confirmationUrl}>
           Redefinir senha
         </Button>
         <Text style={footer}>
-          Se você não solicitou esta alteração, ignore este e-mail. Sua senha continuará a mesma.
+          Se você não solicitou esta alteração, ignore este e-mail. Sua senha
+          não será alterada.
         </Text>
       </Container>
     </Body>
@@ -46,8 +48,8 @@ export const RecoveryEmail = ({
 
 export default RecoveryEmail
 
-const main = { backgroundColor: '#f7f8fa', fontFamily: 'Arial, Helvetica, sans-serif' }
-const container = { padding: '20px 25px' }
+const main = { backgroundColor: '#f7f8fa', fontFamily: 'Arial, sans-serif' }
+const container = { backgroundColor: '#ffffff', border: '1px solid #cda520', borderRadius: '8px', padding: '24px 28px' }
 const h1 = {
   fontSize: '22px',
   fontWeight: 'bold' as const,
@@ -65,11 +67,11 @@ const button = {
   color: '#ffffff',
   fontSize: '14px',
   border: '1px solid #cda520',
-  borderRadius: '10px',
+  borderRadius: '8px',
   padding: '12px 20px',
   textDecoration: 'none',
 }
-const footer = { fontSize: '12px', color: '#7a8493', margin: '30px 0 0' }
+const footer = { fontSize: '12px', color: '#999999', margin: '30px 0 0' }
 // Rendered as a text child, which React may HTML-escape: keep this CSS free of >, &, and quotes.
 const darkModeCss = `
   @media (prefers-color-scheme: dark) {

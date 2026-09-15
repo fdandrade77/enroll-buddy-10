@@ -26,7 +26,8 @@ export const ReauthenticationEmail = ({ token }: ReauthenticationEmailProps) => 
         <Text style={text}>Use o código abaixo para confirmar sua identidade:</Text>
         <Text style={codeStyle}>{token}</Text>
         <Text style={footer}>
-          Este código expira em breve. Se você não o solicitou, ignore este e-mail.
+          Este código expirará em breve. Se você não fez esta solicitação,
+          ignore este e-mail.
         </Text>
       </Container>
     </Body>
@@ -35,8 +36,8 @@ export const ReauthenticationEmail = ({ token }: ReauthenticationEmailProps) => 
 
 export default ReauthenticationEmail
 
-const main = { backgroundColor: '#f7f8fa', fontFamily: 'Arial, Helvetica, sans-serif' }
-const container = { padding: '20px 25px' }
+const main = { backgroundColor: '#f7f8fa', fontFamily: 'Arial, sans-serif' }
+const container = { backgroundColor: '#ffffff', border: '1px solid #cda520', borderRadius: '8px', padding: '24px 28px' }
 const h1 = {
   fontSize: '22px',
   fontWeight: 'bold' as const,
@@ -56,4 +57,4 @@ const codeStyle = {
   color: '#182033',
   margin: '0 0 30px',
 }
-const footer = { fontSize: '12px', color: '#7a8493', margin: '30px 0 0' }
+const footer = { fontSize: '12px', color: '#999999', margin: '30px 0 0' }

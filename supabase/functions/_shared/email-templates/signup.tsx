@@ -31,16 +31,16 @@ export const SignupEmail = ({
     <Head>
       <style>{darkModeCss}</style>
     </Head>
-    <Preview>Confirme seu e-mail para acessar a FATEB</Preview>
+    <Preview>Confirme seu e-mail para acessar a {siteName}</Preview>
     <Body style={main}>
       <Container style={container}>
         <Heading style={h1}>Confirme seu e-mail</Heading>
         <Text style={text}>
-          Obrigado por se cadastrar no{' '}
+          Obrigado por se cadastrar na{' '}
           <Link href={siteUrl} style={link}>
             <strong>{siteName}</strong>
           </Link>
-          !
+          .
         </Text>
         <Text style={text}>
           Confirme seu endereço de e-mail (
@@ -53,7 +53,7 @@ export const SignupEmail = ({
           Confirmar e-mail
         </Button>
         <Text style={footer}>
-          Se você não criou esta conta, ignore este e-mail.
+          Se você não criou uma conta, ignore este e-mail.
         </Text>
       </Container>
     </Body>
@@ -62,8 +62,8 @@ export const SignupEmail = ({
 
 export default SignupEmail
 
-const main = { backgroundColor: '#f7f8fa', fontFamily: 'Arial, Helvetica, sans-serif' }
-const container = { padding: '20px 25px' }
+const main = { backgroundColor: '#f7f8fa', fontFamily: 'Arial, sans-serif' }
+const container = { backgroundColor: '#ffffff', border: '1px solid #cda520', borderRadius: '8px', padding: '24px 28px' }
 const h1 = {
   fontSize: '22px',
   fontWeight: 'bold' as const,
@@ -82,11 +82,11 @@ const button = {
   color: '#ffffff',
   fontSize: '14px',
   border: '1px solid #cda520',
-  borderRadius: '10px',
+  borderRadius: '8px',
   padding: '12px 20px',
   textDecoration: 'none',
 }
-const footer = { fontSize: '12px', color: '#7a8493', margin: '30px 0 0' }
+const footer = { fontSize: '12px', color: '#999999', margin: '30px 0 0' }
 // Rendered as a text child, which React may HTML-escape: keep this CSS free of >, &, and quotes.
 const darkModeCss = `
   @media (prefers-color-scheme: dark) {

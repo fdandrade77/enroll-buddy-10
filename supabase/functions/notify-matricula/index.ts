@@ -1,10 +1,26 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from 'npm:@supabase/supabase-js@2.49.1'
+import { z } from 'npm:zod@3.24.2'
+import { sendTemplateEmail } from '../_shared/transactional-email-templates/send-email.ts'
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
 };
+
+const MatriculaSchema = z.object({
+  id: z.string().uuid(),
+  nome_completo: z.string().min(1).max(255),
+  curso_id: z.string().uuid().nullable().optional(),
+  vendedor_id: z.string().uuid().nullable().optional(),
+  cpf: z.string().max(30).nullable().optional(),
+  email: z.string().email().max(320).nullable().optional(),
+  whatsapp: z.string().max(30).nullable().optional(),
+  data_vencimento: z.string().max(30).nullable().optional(),
+  tipo_pagamento: z.string().max(40).nullable().optional(),
+  quantidade_parcelas: z.number().int().positive().nullable().optional(),
+  valor_total: z.number().finite().nonnegative(),
+})
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -13,27 +29,20 @@ Deno.serve(async (req) => {
 
   try {
     const payload = await req.json();
-    const record = payload?.record ?? payload;
-
-    if (!record?.nome_completo) {
-      console.log("No valid matricula record in payload");
-      return new Response(JSON.stringify({ ok: true }), {
+    const parsed = MatriculaSchema.safeParse(payload?.record ?? payload)
+    if (!parsed.success) {
+      console.error('Invalid matricula payload', parsed.error.flatten().fieldErrors)
+      return new Response(JSON.stringify({ ok: false, error: 'invalid payload' }), {
+        status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    const record = parsed.data
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const resendApiKey = Deno.env.get("RESEND_API_KEY");
-    const resendFrom = Deno.env.get("RESEND_FROM_EMAIL");
     const adminEmailFallback = Deno.env.get("ADMIN_EMAIL");
-
-    if (!resendApiKey || !resendFrom) {
-      console.error("Missing RESEND_API_KEY or RESEND_FROM_EMAIL");
-      return new Response(JSON.stringify({ ok: false, error: "missing env vars" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
@@ -106,78 +115,40 @@ Deno.serve(async (req) => {
       ? new Date(record.data_vencimento + "T00:00:00").toLocaleDateString("pt-BR")
       : "—";
 
-    const htmlBody = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <h2 style="color: #1a1a2e; border-bottom: 2px solid #e94560; padding-bottom: 10px;">
-          📋 Nova Matrícula Cadastrada
-        </h2>
-        <table style="width: 100%; border-collapse: collapse; margin-top: 16px;">
-          <tr>
-            <td style="padding: 8px 12px; font-weight: bold; color: #555; width: 40%;">Nome</td>
-            <td style="padding: 8px 12px;">${record.nome_completo}</td>
-          </tr>
-          <tr style="background: #f8f9fa;">
-            <td style="padding: 8px 12px; font-weight: bold; color: #555;">Curso</td>
-            <td style="padding: 8px 12px;">${cursoNome}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px 12px; font-weight: bold; color: #555;">CPF</td>
-            <td style="padding: 8px 12px;">${record.cpf ?? "—"}</td>
-          </tr>
-          <tr style="background: #f8f9fa;">
-            <td style="padding: 8px 12px; font-weight: bold; color: #555;">E-mail</td>
-            <td style="padding: 8px 12px;">${record.email ?? "—"}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px 12px; font-weight: bold; color: #555;">WhatsApp</td>
-            <td style="padding: 8px 12px;">${record.whatsapp}</td>
-          </tr>
-          <tr style="background: #f8f9fa;">
-            <td style="padding: 8px 12px; font-weight: bold; color: #555;">Data de Vencimento</td>
-            <td style="padding: 8px 12px;">${vencimentoFormatado}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px 12px; font-weight: bold; color: #555;">Pagamento</td>
-            <td style="padding: 8px 12px;">${tipoPagamento}</td>
-          </tr>
-          <tr style="background: #f8f9fa;">
-            <td style="padding: 8px 12px; font-weight: bold; color: #555;">Valor Total</td>
-            <td style="padding: 8px 12px; font-weight: bold; color: #e94560;">${valorFormatado}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px 12px; font-weight: bold; color: #555;">Vendedor</td>
-            <td style="padding: 8px 12px;">${vendedorLabel}</td>
-          </tr>
-        </table>
-        <p style="margin-top: 20px; font-size: 12px; color: #999;">
-          Notificação automática do sistema de matrículas.
-        </p>
-      </div>
-    `;
+    const templateData = {
+      nome: record.nome_completo,
+      curso: cursoNome,
+      cpf: record.cpf ?? '—',
+      email: record.email ?? '—',
+      whatsapp: record.whatsapp ?? '—',
+      vencimento: vencimentoFormatado,
+      pagamento: tipoPagamento,
+      valorTotal: valorFormatado,
+      vendedor: vendedorLabel,
+    }
 
-    const resendRes = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${resendApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: resendFrom,
-        to: recipients,
-        subject: `Nova Matrícula: ${record.nome_completo}`,
-        html: htmlBody,
-      }),
-    });
+    const results = []
+    for (let index = 0; index < recipients.length; index += 1) {
+      const result = await sendTemplateEmail('nova-matricula', recipients[index], {
+        templateData,
+        idempotencyKey: `nova-matricula-${record.id}-${index}`,
+      })
+      results.push(result)
+    }
 
-    const resendData = await resendRes.json();
-    console.log("Resend response:", JSON.stringify(resendData));
+    console.log('Matricula notification processed', {
+      matricula_id: record.id,
+      sent: results.filter((result) => result.sent).length,
+      suppressed: results.filter((result) => !result.sent).length,
+    })
 
-    return new Response(JSON.stringify({ ok: true }), {
+    return new Response(JSON.stringify({ ok: true, results }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
     console.error("Error in notify-matricula:", error);
-    return new Response(JSON.stringify({ ok: true }), {
+    return new Response(JSON.stringify({ ok: false, error: "send failed" }), {
+      status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
