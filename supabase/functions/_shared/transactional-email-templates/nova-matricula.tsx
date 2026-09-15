@@ -93,11 +93,11 @@ const container = {
   overflow: 'hidden',
 }
 const header = { backgroundColor: '#0a0a0a', padding: '24px' }
-const brand = { color: '#cda520', fontSize: '13px', fontWeight: '700', margin: '0 0 8px' }
-const heading = { color: '#ffffff', fontSize: '24px', fontWeight: '700', margin: '0' }
+const brand = { color: '#cda520', fontSize: '13px', fontWeight: '700' as const, margin: '0 0 8px' }
+const heading = { color: '#ffffff', fontSize: '24px', fontWeight: '700' as const, margin: '0' }
 const details = { padding: '16px 24px' }
 const row = { backgroundColor: '#ffffff' }
 const alternateRow = { backgroundColor: '#f7f8fa' }
-const labelCell = { color: '#657080', fontSize: '14px', fontWeight: '700', padding: '10px 12px', width: '40%' }
+const labelCell = { color: '#657080', fontSize: '14px', fontWeight: '700' as const, padding: '10px 12px', width: '40%' }
 const valueCell = { color: '#182033', fontSize: '14px', padding: '10px 12px' }
 const footer = { color: '#657080', fontSize: '12px', margin: '0', padding: '8px 24px 24px' }
