@@ -1,4 +1,7 @@
 project_id = "jjxjuqtdaphmoscntzqc"
 
-[functions.notify-matricula]
-verify_jwt = false
+[functions]
+  [functions.auth-email-hook]
+    verify_jwt = false
+  [functions.notify-matricula]
+    verify_jwt = false
