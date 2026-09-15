@@ -1,20 +1,32 @@
-# Restaurar a notificação de matrícula pelo Resend
+# Corrigir o Resend e restaurar a notificação de matrícula
 
 ## Objetivo
-Voltar a enviar apenas o aviso de nova matrícula para o e-mail configurado no painel administrativo, sem transferir o domínio e sem alterar o funcionamento do site.
+Enviar pelo Resend somente o aviso de nova matrícula ao endereço salvo em **Admin → Configurações**, sem transferir o domínio e sem alterar o site.
 
-## Plano
-1. Manter `matriculafatebead.com.br` no Registro.br e preservar todos os registros atuais do site.
-2. Conferir no Resend o domínio ou subdomínio de envio e usar exatamente os registros DNS fornecidos por ele. O Registro.br aceita os tipos normalmente usados pelo Resend, como MX e TXT.
-3. Confirmar que a credencial atual do Resend ainda pertence à conta acessível; se estiver inválida, substituí-la de forma segura por uma nova credencial dessa conta.
-4. Alterar somente o envio da notificação de nova matrícula para usar novamente o Resend.
-5. Preservar o destinatário configurável na tela administrativa, com o endereço atualmente cadastrado como referência.
-6. Manter no e-mail todos os dados solicitados: nome, curso, CPF, e-mail, WhatsApp, vencimento, pagamento, valor total e vendedor.
-7. Publicar a função atualizada e realizar um teste controlado de envio.
-8. Conferir o resultado no histórico do Resend e, se necessário, corrigir apenas a verificação do remetente.
+## Diagnóstico confirmado
+A tela do Resend mostra que o domínio ainda não foi validado porque estes registros estão com status **Failed**:
+- DKIM: registro TXT `resend._domainkey`;
+- SPF: registro MX `send`, prioridade 10;
+- SPF: registro TXT `send`;
+- DMARC aparece como opcional e não impede o envio.
+
+Os valores aparecem abreviados na imagem. Durante a configuração, serão copiados integralmente da tela do Resend, sem tentar reconstruí-los.
+
+## Execução
+1. Manter todos os registros atuais do site no Registro.br.
+2. Adicionar no Registro.br os três registros exatos exibidos pelo Resend:
+   - TXT `resend._domainkey`, com o conteúdo DKIM completo;
+   - MX `send`, com o servidor completo e prioridade 10;
+   - TXT `send`, com o conteúdo SPF completo.
+3. Evitar registros duplicados ou conflitantes nesses mesmos nomes.
+4. Solicitar uma nova verificação no Resend e aguardar os três status mudarem para **Verified**.
+5. Alterar somente a notificação de nova matrícula para usar novamente o Resend.
+6. Reutilizar a credencial já armazenada; se o Resend informar que ela expirou ou foi revogada, solicitar a substituição pelo formulário seguro, sem expor a chave no chat.
+7. Preservar o destinatário configurável no painel administrativo e todos os dados do aluno no aviso: nome, curso, CPF, e-mail, WhatsApp, vencimento, pagamento, valor total e vendedor.
+8. Atualizar o envio e realizar um teste controlado, conferindo o resultado no histórico do Resend.
 
 ## Resultado esperado
-Ao criar uma matrícula, o sistema enviará um único aviso pelo Resend ao endereço salvo em **Admin → Configurações**, sem depender da transferência do domínio para o Lovable.
+Cada nova matrícula gerará um único e-mail pelo Resend para o destinatário cadastrado no painel administrativo. O domínio e o site continuarão hospedados e funcionando como estão hoje.
 
-## Ação necessária durante a execução
-Você precisará apenas abrir o Resend para consultar os registros exatos do domínio e, se a credencial antiga não funcionar, autorizar uma nova conexão segura. Não envie senhas ou chaves pelo chat.
+## Participação necessária
+Na etapa dos registros DNS, será necessário copiar os valores completos da sua tela do Resend, pois a captura os abrevia. Não envie senha ou chave de API pelo chat.
