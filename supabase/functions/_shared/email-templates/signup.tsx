@@ -1,0 +1,97 @@
+/// <reference types="npm:@types/react@18.3.1" />
+
+import * as React from 'npm:react@18.3.1'
+
+import {
+  Body,
+  Button,
+  Container,
+  Head,
+  Heading,
+  Html,
+  Link,
+  Preview,
+  Text,
+} from 'npm:@react-email/components@0.0.22'
+
+interface SignupEmailProps {
+  siteName: string
+  siteUrl: string
+  recipient: string
+  confirmationUrl: string
+}
+
+export const SignupEmail = ({
+  siteName,
+  siteUrl,
+  recipient,
+  confirmationUrl,
+}: SignupEmailProps) => (
+  <Html lang="pt-BR" dir="ltr">
+    <Head>
+      <style>{darkModeCss}</style>
+    </Head>
+    <Preview>Confirme seu e-mail para acessar a FATEB</Preview>
+    <Body style={main}>
+      <Container style={container}>
+        <Heading style={h1}>Confirme seu e-mail</Heading>
+        <Text style={text}>
+          Obrigado por se cadastrar no{' '}
+          <Link href={siteUrl} style={link}>
+            <strong>{siteName}</strong>
+          </Link>
+          !
+        </Text>
+        <Text style={text}>
+          Confirme seu endereço de e-mail (
+          <Link href={`mailto:${recipient}`} style={link}>
+            {recipient}
+          </Link>
+          ) clicando no botão abaixo:
+        </Text>
+        <Button className="dm-btn" style={button} href={confirmationUrl}>
+          Confirmar e-mail
+        </Button>
+        <Text style={footer}>
+          Se você não criou esta conta, ignore este e-mail.
+        </Text>
+      </Container>
+    </Body>
+  </Html>
+)
+
+export default SignupEmail
+
+const main = { backgroundColor: '#f7f8fa', fontFamily: 'Arial, Helvetica, sans-serif' }
+const container = { padding: '20px 25px' }
+const h1 = {
+  fontSize: '22px',
+  fontWeight: 'bold' as const,
+  color: '#182033',
+  margin: '0 0 20px',
+}
+const text = {
+  fontSize: '14px',
+  color: '#657080',
+  lineHeight: '1.5',
+  margin: '0 0 25px',
+}
+const link = { color: 'inherit', textDecoration: 'underline' }
+const button = {
+  backgroundColor: '#cda520',
+  color: '#ffffff',
+  fontSize: '14px',
+  border: '1px solid #cda520',
+  borderRadius: '10px',
+  padding: '12px 20px',
+  textDecoration: 'none',
+}
+const footer = { fontSize: '12px', color: '#7a8493', margin: '30px 0 0' }
+// Rendered as a text child, which React may HTML-escape: keep this CSS free of >, &, and quotes.
+const darkModeCss = `
+  @media (prefers-color-scheme: dark) {
+    .dm-btn { background-color: #cda520 !important; color: #ffffff !important; }
+  }
+  [data-ogsc] .dm-btn { background-color: #cda520 !important; color: #ffffff !important; }
+  [data-ogsb] .dm-btn { background-color: #cda520 !important; color: #ffffff !important; }
+`
