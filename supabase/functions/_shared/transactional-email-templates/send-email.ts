@@ -1,23 +1,11 @@
 import * as React from 'npm:react@18.3.1'
 import { renderAsync } from 'npm:@react-email/components@0.0.22'
-import { EmailAPIError, sendLovableEmail } from 'npm:@lovable.dev/email-js@0.1.0'
 import { TEMPLATES } from './registry.ts'
 
-// Server-only: reads LOVABLE_API_KEY. Import from edge functions only — never
-// expose sending to the browser.
+// Server-only: reads Resend credentials. Import from edge functions only —
+// never expose sending to the browser.
 
-// Configuration baked in at scaffold time
-const SITE_NAME = "FATEB"
-// SENDER_DOMAIN is the verified sender subdomain FQDN (e.g., "notify.example.com").
-// It MUST match the subdomain delegated to Lovable's nameservers. NEVER use the root domain.
-const SENDER_DOMAIN = "notify.matriculafatebead.com.br"
-// FROM_DOMAIN is the domain shown in the From: header (e.g., "example.com").
-// Can be the root domain when display_from_root is enabled — this is cosmetic only.
-const FROM_DOMAIN = "notify.matriculafatebead.com.br"
-
-export type SendTemplateEmailResult =
-  | { sent: true }
-  | { sent: false; reason: 'recipient_suppressed' }
+export type SendTemplateEmailResult = { sent: true; id?: string }
 
 export interface SendTemplateEmailOptions {
   templateData?: Record<string, any>
@@ -27,20 +15,22 @@ export interface SendTemplateEmailOptions {
 }
 
 /**
- * Renders a registered template and sends it through Lovable's managed email
- * API. Suppression, retries, and rate limits are enforced by Lovable
- * server-side. A suppressed recipient is an expected outcome
- * ({ sent: false }); any other failure throws — EmailAPIError exposes
- * .code and .status for branching.
+ * Renders a registered template and sends it through the project's Resend
+ * account. Any provider failure throws so the caller can return a non-2xx
+ * response and retain a useful diagnostic in the function logs.
  */
 export async function sendTemplateEmail(
   templateName: string,
   to: string,
   options: SendTemplateEmailOptions = {}
 ): Promise<SendTemplateEmailResult> {
-  const apiKey = Deno.env.get('LOVABLE_API_KEY')
+  const apiKey = Deno.env.get('RESEND_API_KEY')
+  const from = Deno.env.get('RESEND_FROM_EMAIL')
   if (!apiKey) {
-    throw new Error('LOVABLE_API_KEY is not configured')
+    throw new Error('RESEND_API_KEY is not configured')
+  }
+  if (!from) {
+    throw new Error('RESEND_FROM_EMAIL is not configured')
   }
 
   const template = TEMPLATES[templateName]
@@ -66,28 +56,35 @@ export async function sendTemplateEmail(
       ? template.subject(templateData)
       : template.subject
 
-  try {
-    await sendLovableEmail(
-      {
-        to: recipient,
-        from: `${SITE_NAME} <noreply@${FROM_DOMAIN}>`,
-        sender_domain: SENDER_DOMAIN,
-        subject,
-        html,
-        text,
-        purpose: 'transactional',
-        label: templateName,
-        idempotency_key: options.idempotencyKey || crypto.randomUUID(),
-        reply_to: options.replyTo,
-      },
-      { apiKey, sendUrl: Deno.env.get('LOVABLE_SEND_URL') }
-    )
-  } catch (error) {
-    if (error instanceof EmailAPIError && error.code === 'recipient_suppressed') {
-      return { sent: false, reason: 'recipient_suppressed' }
-    }
-    throw error
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      'Idempotency-Key': options.idempotencyKey || crypto.randomUUID(),
+    },
+    body: JSON.stringify({
+      from,
+      to: [recipient],
+      subject,
+      html,
+      text,
+      reply_to: options.replyTo,
+    }),
+  })
+
+  const responseBody = await response.text()
+  if (!response.ok) {
+    throw new Error(`Resend request failed [${response.status}]: ${responseBody}`)
   }
 
-  return { sent: true }
+  let id: string | undefined
+  try {
+    const parsed = JSON.parse(responseBody)
+    id = typeof parsed?.id === 'string' ? parsed.id : undefined
+  } catch {
+    id = undefined
+  }
+
+  return { sent: true, id }
 }

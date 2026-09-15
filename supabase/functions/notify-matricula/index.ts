@@ -138,8 +138,7 @@ Deno.serve(async (req) => {
 
     console.log('Matricula notification processed', {
       matricula_id: record.id,
-      sent: results.filter((result) => result.sent).length,
-      suppressed: results.filter((result) => !result.sent).length,
+      sent: results.length,
     })
 
     return new Response(JSON.stringify({ ok: true, results }), {
