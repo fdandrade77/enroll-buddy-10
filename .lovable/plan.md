@@ -10,11 +10,13 @@ A tela do Resend mostra que o domínio ainda não foi validado porque estes regi
 - SPF: registro TXT `send`;
 - DMARC aparece como opcional e não impede o envio.
 
+O Resend ainda identifica a configuração antiga da Hostinger. Como o DNS atual é administrado pelo Registro.br, os registros de autenticação do Resend precisam ser recriados na zona DNS do Registro.br; nenhuma alteração será feita na Hostinger.
+
 Os valores aparecem abreviados na imagem. Durante a configuração, serão copiados integralmente da tela do Resend, sem tentar reconstruí-los.
 
 ## Execução
-1. Manter todos os registros atuais do site no Registro.br.
-2. Adicionar no Registro.br os três registros exatos exibidos pelo Resend:
+1. Manter todos os registros atuais do site no Registro.br, incluindo os apontamentos do domínio principal e do `www` para o Lovable.
+2. Ignorar a indicação antiga de provedor Hostinger mostrada pelo Resend e adicionar no Registro.br os três registros exatos exibidos pelo Resend:
    - TXT `resend._domainkey`, com o conteúdo DKIM completo;
    - MX `send`, com o servidor completo e prioridade 10;
    - TXT `send`, com o conteúdo SPF completo.
