@@ -1,0 +1,1 @@
+DROP TRIGGER IF EXISTS notify_matricula_webhook_trigger ON public.matriculas;
